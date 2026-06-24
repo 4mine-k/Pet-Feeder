@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pet Feeder Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        h1 { text-align: center; font-size: 1.4rem; margin-bottom: 20px; }
+        h1 span { color: #4fc3f7; }
+        .card {
+            background: #16213e;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+        .card-title {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #888;
+            margin-bottom: 10px;
+        }
+        .level-container { display: flex; align-items: center; gap: 16px; }
+        .level-bar-bg {
+            flex: 1; height: 24px; background: #0f3460;
+            border-radius: 12px; overflow: hidden;
+        }
+        .level-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #e94560, #f5a623, #4fc3f7);
+            border-radius: 12px; transition: width 0.5s;
+        }
+        .level-text { font-size: 1.6rem; font-weight: 700; min-width: 60px; text-align: right; }
+        .time-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .time-item {
+            background: #0f3460; border-radius: 12px;
+            padding: 14px; text-align: center;
+        }
+        .time-item label { display: block; font-size: 0.7rem; text-transform: uppercase; color: #888; margin-bottom: 6px; }
+        .time-item .value { font-size: 1.2rem; font-weight: 600; }
+        .auto-note {
+            margin-top: 12px; padding: 10px; background: #0f3460;
+            border-radius: 10px; font-size: 0.8rem; color: #aaa; text-align: center;
+        }
+        .auto-note strong { color: #4fc3f7; }
+        /* Schedule */
+        .schedule-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px; background: #0f3460; border-radius: 10px; margin-bottom: 8px;
+        }
+        .schedule-item input[type="time"] {
+            background: #1a1a2e; border: 1px solid #4fc3f7; border-radius: 8px;
+            color: #fff; padding: 6px 10px; font-size: 1rem;
+        }
+        .schedule-item .remove-btn {
+            background: #e94560; border: none; color: #fff;
+            border-radius: 50%; width: 28px; height: 28px; cursor: pointer; font-size: 1rem;
+        }
+        .add-meal-btn {
+            display: block; width: 100%; padding: 12px; border: 2px dashed #4fc3f7;
+            border-radius: 10px; background: transparent; color: #4fc3f7;
+            font-size: 0.9rem; cursor: pointer; margin-top: 8px;
+        }
+        /* Buttons */
+        .feed-btn {
+            display: block; width: 100%; padding: 16px; border: none; border-radius: 14px;
+            background: linear-gradient(135deg, #e94560, #f5a623);
+            color: #fff; font-size: 1.1rem; font-weight: 700; cursor: pointer;
+        }
+        .feed-btn:active { transform: scale(0.97); }
+        .status { text-align: center; font-size: 0.8rem; color: #4fc3f7; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h1>🐾 <span>Pet Feeder</span> Dashboard</h1>
+
+    <div class="card">
+        <div class="card-title">Storage Level</div>
+        <div class="level-container">
+            <div class="level-bar-bg"><div class="level-bar" id="levelBar" style="width: 0%"></div></div>
+            <div class="level-text" id="levelText">--%</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-title">Meal Info</div>
+        <div class="time-grid">
+            <div class="time-item">
+                <label>Last Meal</label>
+                <div class="value" id="lastMeal">--:--</div>
+            </div>
+            <div class="time-item">
+                <label>Next Meal</label>
+                <div class="value" id="nextMeal">--:--</div>
+            </div>
+        </div>
+        <div class="auto-note">
+            <strong>Auto Mode:</strong> Feeds automatically at your scheduled meal times below
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-title">Feeding Schedule</div>
+        <div id="scheduleList"></div>
+        <button class="add-meal-btn" id="addMealBtn">+ Add Meal Time</button>
+    </div>
+
+    <div class="card">
+        <button class="feed-btn" id="feedBtn">🍖 Force Feed Now</button>
+        <div class="status" id="status"></div>
+    </div>
+
+    <script>
+        const BLYNK_TOKEN = "X-JtzuiZwSBKme2xwuqXuT2h_FPaIE-z";
+        const BLYNK_URL = "https://blynk.cloud/external/api";
+
+        let lastMealTimestamp = parseInt(localStorage.getItem("lastMeal")) || null;
+        let schedule = JSON.parse(localStorage.getItem("schedule")) || ["08:00", "12:00", "18:00"];
+
+        // --- Storage Level ---
+        async function fetchLevel() {
+            try {
+                const res = await fetch(`${BLYNK_URL}/get?token=${BLYNK_TOKEN}&V2`);
+                const data = await res.json();
+                const level = Math.min(100, Math.max(0, parseInt(data[0]) || 0));
+                document.getElementById("levelBar").style.width = level + "%";
+                document.getElementById("levelText").textContent = level + "%";
+            } catch (e) {}
+        }
+
+        // --- Force Feed ---
+        async function feedNow() {
+            const btn = document.getElementById("feedBtn");
+            const status = document.getElementById("status");
+            btn.disabled = true;
+            status.textContent = "Dispensing...";
+            try {
+                await fetch(`${BLYNK_URL}/update?token=${BLYNK_TOKEN}&V1=1`);
+                lastMealTimestamp = Date.now();
+                localStorage.setItem("lastMeal", lastMealTimestamp);
+                updateTimes();
+                status.textContent = "✓ Food dispensed!";
+            } catch (e) {
+                status.textContent = "✗ Connection error";
+            }
+            setTimeout(() => { btn.disabled = false; status.textContent = ""; }, 3000);
+        }
+
+        // --- Times ---
+        function updateTimes() {
+            const lastEl = document.getElementById("lastMeal");
+            const nextEl = document.getElementById("nextMeal");
+            if (lastMealTimestamp) {
+                lastEl.textContent = new Date(lastMealTimestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
+            // Next meal = next scheduled time from now
+            const now = new Date();
+            const nowMin = now.getHours() * 60 + now.getMinutes();
+            let next = schedule.map(t => { const [h, m] = t.split(":"); return parseInt(h) * 60 + parseInt(m); })
+                .sort((a, b) => a - b)
+                .find(t => t > nowMin);
+            if (next !== undefined) {
+                nextEl.textContent = String(Math.floor(next / 60)).padStart(2, '0') + ":" + String(next % 60).padStart(2, '0');
+            } else if (schedule.length) {
+                nextEl.textContent = schedule.sort()[0] + " (tomorrow)";
+            } else {
+                nextEl.textContent = "No schedule";
+            }
+        }
+
+        // --- Schedule UI ---
+        function renderSchedule() {
+            const list = document.getElementById("scheduleList");
+            list.innerHTML = schedule.map((time, i) =>
+                `<div class="schedule-item">
+                    <span>Meal ${i + 1}</span>
+                    <input type="time" value="${time}" onchange="updateMeal(${i}, this.value)">
+                    <button class="remove-btn" onclick="removeMeal(${i})">×</button>
+                </div>`
+            ).join("");
+        }
+
+        function updateMeal(index, value) {
+            schedule[index] = value;
+            saveSchedule();
+        }
+
+        function removeMeal(index) {
+            schedule.splice(index, 1);
+            saveSchedule();
+            renderSchedule();
+        }
+
+        function addMeal() {
+            schedule.push("12:00");
+            saveSchedule();
+            renderSchedule();
+        }
+
+        function saveSchedule() {
+            localStorage.setItem("schedule", JSON.stringify(schedule));
+            updateTimes();
+        }
+
+        // --- Scheduled auto-trigger via Blynk ---
+        function checkScheduledFeed() {
+            const now = new Date();
+            const current = String(now.getHours()).padStart(2, '0') + ":" + String(now.getMinutes()).padStart(2, '0');
+            if (schedule.includes(current)) {
+                // Trigger feed via Blynk (ESP32 handles actual dispensing)
+                fetch(`${BLYNK_URL}/update?token=${BLYNK_TOKEN}&V1=1`);
+                lastMealTimestamp = Date.now();
+                localStorage.setItem("lastMeal", lastMealTimestamp);
+                updateTimes();
+            }
+        }
+
+        // Init
+        document.getElementById("feedBtn").addEventListener("click", feedNow);
+        document.getElementById("addMealBtn").addEventListener("click", addMeal);
+        renderSchedule();
+        updateTimes();
+        fetchLevel();
+        setInterval(fetchLevel, 5000);
+        setInterval(updateTimes, 60000);
+        setInterval(checkScheduledFeed, 60000);
+    </script>
+</body>
+</html>
