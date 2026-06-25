@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Pet Feeder</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#1a1a2e;color:#eee;min-height:100vh;padding:20px}
+h1{text-align:center;font-size:1.4rem;margin-bottom:20px}
+h1 span{color:#4fc3f7}
+.card{background:#16213e;border-radius:16px;padding:20px;margin-bottom:16px}
+.card-title{font-size:.8rem;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:10px}
+.level-container{display:flex;align-items:center;gap:16px}
+.level-bar-bg{flex:1;height:24px;background:#0f3460;border-radius:12px;overflow:hidden}
+.level-bar{height:100%;background:linear-gradient(90deg,#e94560,#f5a623,#4fc3f7);border-radius:12px;transition:width .5s}
+.level-text{font-size:1.6rem;font-weight:700;min-width:60px;text-align:right}
+.time-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.time-item{background:#0f3460;border-radius:12px;padding:14px;text-align:center}
+.time-item label{display:block;font-size:.7rem;text-transform:uppercase;color:#888;margin-bottom:6px}
+.time-item .value{font-size:1.2rem;font-weight:600}
+.auto-note{margin-top:12px;padding:10px;background:#0f3460;border-radius:10px;font-size:.8rem;color:#aaa;text-align:center}
+.auto-note strong{color:#4fc3f7}
+.schedule-item{display:flex;justify-content:space-between;align-items:center;padding:12px;background:#0f3460;border-radius:10px;margin-bottom:8px}
+.schedule-item input[type="time"]{background:#1a1a2e;border:1px solid #4fc3f7;border-radius:8px;color:#fff;padding:6px 10px;font-size:1rem}
+.schedule-item .remove-btn{background:#e94560;border:none;color:#fff;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:1rem}
+.add-meal-btn{display:block;width:100%;padding:12px;border:2px dashed #4fc3f7;border-radius:10px;background:transparent;color:#4fc3f7;font-size:.9rem;cursor:pointer;margin-top:8px}
+.feed-btn{display:block;width:100%;padding:16px;border:none;border-radius:14px;background:linear-gradient(135deg,#e94560,#f5a623);color:#fff;font-size:1.1rem;font-weight:700;cursor:pointer}
+.feed-btn:active{transform:scale(.97)}
+.status{text-align:center;font-size:.8rem;color:#4fc3f7;margin-top:10px}
+.pet-status{text-align:center;padding:8px;border-radius:8px;font-weight:600;margin-top:12px}
+.pet-here{background:#1b5e20;color:#a5d6a7}
+.pet-away{background:#0f3460;color:#888}
+.badge{text-align:center;margin-bottom:16px;font-size:.75rem}
+.badge span{padding:4px 12px;border-radius:20px}
+.badge.on span{background:#1b5e20;color:#a5d6a7}
+.badge.off span{background:#b71c1c;color:#ef9a9a}
+</style>
+</head>
+<body>
+<h1>🐾 <span>Pet Feeder</span></h1>
+<div class="badge on" id="badge"><span>● Connected</span></div>
+
+<div class="card">
+<div class="card-title">Storage Level</div>
+<div class="level-container">
+<div class="level-bar-bg"><div class="level-bar" id="levelBar" style="width:0%"></div></div>
+<div class="level-text" id="levelText">--%</div>
+</div>
+<div class="pet-status pet-away" id="petStatus">No pet detected</div>
+</div>
+
+<div class="card">
+<div class="card-title">Meal Info</div>
+<div class="time-grid">
+<div class="time-item"><label>Last Meal</label><div class="value" id="lastMeal">--:--</div></div>
+<div class="time-item"><label>Next Meal</label><div class="value" id="nextMeal">--:--</div></div>
+</div>
+<div class="auto-note"><strong>Auto Mode:</strong> Feeds when pet arrives + stock &gt; 20% + 2h cooldown passed</div>
+</div>
+
+<div class="card">
+<div class="card-title">Feeding Schedule</div>
+<div id="scheduleList"></div>
+<button class="add-meal-btn" id="addMealBtn">+ Add Meal Time</button>
+</div>
+
+<div class="card">
+<button class="feed-btn" id="feedBtn">🍖 Force Feed Now</button>
+<div class="status" id="status"></div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<script>
+firebase.initializeApp({
+  apiKey: "AIzaSyCHvJBTqRLMG-JtDZkMWBM5iISRuF7BMHs",
+  authDomain: "pet-feed3r.firebaseapp.com",
+  databaseURL: "https://pet-feed3r-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "pet-feed3r"
+});
+
+const db = firebase.database();
+let schedule = JSON.parse(localStorage.getItem("schedule")) || ["08:00","12:00","16:00","20:00"];
+
+// Real-time listeners — updates INSTANTLY when ESP32 writes
+db.ref("/foodLevel").on("value", snap => {
+  const level = snap.val() || 0;
+  document.getElementById("levelBar").style.width = level + "%";
+  document.getElementById("levelText").textContent = level + "%";
+});
+
+db.ref("/petDetected").on("value", snap => {
+  const ps = document.getElementById("petStatus");
+  if (snap.val() === 1) { ps.textContent = "🐱 Pet detected!"; ps.className = "pet-status pet-here"; }
+  else { ps.textContent = "No pet detected"; ps.className = "pet-status pet-away"; }
+});
+
+db.ref("/lastFeed").on("value", snap => {
+  if (snap.val()) {
+    const now = new Date();
+    document.getElementById("lastMeal").textContent = now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+  }
+});
+
+// Force feed
+async function feedNow() {
+  const btn = document.getElementById("feedBtn");
+  const status = document.getElementById("status");
+  btn.disabled = true; status.textContent = "Sending command...";
+  await db.ref("/feedNow").set(1);
+  status.textContent = "✓ Food dispensed!";
+  setTimeout(() => { btn.disabled = false; status.textContent = ""; }, 6000);
+}
+
+// Schedule
+function updateNextMeal() {
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const sorted = schedule.map(t => { const [h,m] = t.split(":"); return parseInt(h)*60+parseInt(m); }).sort((a,b)=>a-b);
+  let next = sorted.find(t => t > nowMin);
+  const el = document.getElementById("nextMeal");
+  if (next !== undefined) el.textContent = String(Math.floor(next/60)).padStart(2,'0') + ":" + String(next%60).padStart(2,'0');
+  else if (sorted.length) el.textContent = String(Math.floor(sorted[0]/60)).padStart(2,'0') + ":" + String(sorted[0]%60).padStart(2,'0') + " (tmrw)";
+  else el.textContent = "No schedule";
+}
+
+function renderSchedule() {
+  document.getElementById("scheduleList").innerHTML = schedule.map((t,i) =>
+    `<div class="schedule-item"><span>Meal ${i+1}</span><input type="time" value="${t}" onchange="updateMeal(${i},this.value)"><button class="remove-btn" onclick="removeMeal(${i})">×</button></div>`
+  ).join("");
+  updateNextMeal();
+}
+function updateMeal(i, v) { schedule[i] = v; saveSchedule(); }
+function removeMeal(i) { schedule.splice(i,1); saveSchedule(); renderSchedule(); }
+function saveSchedule() { localStorage.setItem("schedule", JSON.stringify(schedule)); updateNextMeal(); db.ref("/schedule").set(schedule.join(",")); }
+
+document.getElementById("feedBtn").addEventListener("click", feedNow);
+document.getElementById("addMealBtn").addEventListener("click", () => { schedule.push("12:00"); saveSchedule(); renderSchedule(); });
+
+// Load schedule from Firebase (syncs across devices)
+db.ref("/schedule").once("value").then(snap => {
+  if (snap.val()) {
+    schedule = snap.val().split(",");
+    localStorage.setItem("schedule", JSON.stringify(schedule));
+  }
+  renderSchedule();
+});
+setInterval(updateNextMeal, 60000);
+</script>
+</body>
+</html>
