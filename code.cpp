@@ -1,6 +1,7 @@
 #include <WiFi.h>
 #include <Firebase_ESP_Client.h>
 #include <ESP32Servo.h>
+#include <Preferences.h>
 #include <time.h>
 #include "addons/TokenHelper.h"
 #include "addons/RTDBHelper.h"
@@ -30,6 +31,7 @@ int prevDay = -1;
 int currentTimeMin = -1; // minutes-of-day from website via Firebase
 
 Servo servo;
+Preferences prefs;
 FirebaseData fbdo;
 FirebaseAuth auth;
 FirebaseConfig config;
@@ -40,10 +42,15 @@ void executeMeal() {
   servo.write(180);
   delay(5000);
   servo.write(0);
-  // Get current time and send to Firebase
+  // Send last feed time to Firebase
   struct tm t;
+  int nowMin = -1;
   if (getLocalTime(&t)) {
-    int nowMin = t.tm_hour * 60 + t.tm_min;
+    nowMin = t.tm_hour * 60 + t.tm_min;
+  } else if (currentTimeMin >= 0) {
+    nowMin = currentTimeMin;
+  }
+  if (nowMin >= 0) {
     Firebase.RTDB.setInt(&fbdo, "/lastFeed", nowMin);
   }
   Serial.println(">>> DONE");
@@ -125,6 +132,12 @@ void setup() {
   delay(1000);
   Serial.println("=== PET FEEDER + FIREBASE ===");
 
+  // Load last fed slot from flash
+  prefs.begin("feeder", false);
+  lastFedSlot = prefs.getInt("slot", -1);
+  prevDay = prefs.getInt("day", -1);
+  Serial.print("Restored slot: "); Serial.println(lastFedSlot);
+
   pinMode(trigPin, OUTPUT);
   pinMode(echoPin, INPUT);
   pinMode(irPin, INPUT);
@@ -145,6 +158,13 @@ void setup() {
 
   // NTP time sync (UTC+1) — try but don't depend on it
   configTime(3600, 0, "pool.ntp.org", "time.google.com");
+  delay(2000);
+  struct tm timeinfo;
+  if (getLocalTime(&timeinfo)) {
+    Serial.printf("Time: %02d:%02d\n", timeinfo.tm_hour, timeinfo.tm_min);
+  } else {
+    Serial.println("NTP failed, using website time.");
+  }
 
   // Firebase
   config.api_key = API_KEY;
@@ -182,8 +202,12 @@ void loop() {
     // Reset lastFedSlot at midnight
     struct tm t;
     if (getLocalTime(&t)) {
-      if (prevDay != -1 && t.tm_mday != prevDay) lastFedSlot = -1;
+      if (prevDay != -1 && t.tm_mday != prevDay) {
+        lastFedSlot = -1;
+        prefs.putInt("slot", -1);
+      }
       prevDay = t.tm_mday;
+      prefs.putInt("day", prevDay);
     }
 
     // Auto feed: pet + stock > 20% + in meal window + not already fed this window
@@ -193,6 +217,7 @@ void loop() {
         Serial.println("Auto feed: pet in meal window!");
         executeMeal();
         lastFedSlot = slot;
+        prefs.putInt("slot", lastFedSlot);
       } else if (slot >= 0 && slot == lastFedSlot) {
         Serial.println("Pet detected but already fed in this time window.");
       }
@@ -206,8 +231,8 @@ void loop() {
     // Manual feed
     if (Firebase.RTDB.getInt(&fbdo, "/feedNow")) {
       if (fbdo.intData() == 1) {
-        executeMeal();
         Firebase.RTDB.setInt(&fbdo, "/feedNow", 0);
+        executeMeal();
       }
     }
 
