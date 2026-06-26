@@ -14,7 +14,7 @@
 const int trigPin = 5;
 const int echoPin = 17;
 const int irPin = 23;
-const int servoPin = 4;
+const int servoPin = 13;
 
 const int maxDistance = 30;
 const int minLevelToFeed = 20;
@@ -29,6 +29,7 @@ int scheduleCount = 0;
 int lastFedSlot = -1;
 int prevDay = -1;
 int currentTimeMin = -1; // minutes-of-day from website via Firebase
+bool scheduleLoaded = false;
 
 Servo servo;
 Preferences prefs;
@@ -39,9 +40,9 @@ bool firebaseReady = false;
 
 void executeMeal() {
   Serial.println(">>> FEEDING");
-  servo.write(180);
+  servo.write(180); // full speed counter-clockwise (trigonometric)
   delay(5000);
-  servo.write(0);
+  servo.write(90);  // stop
   // Send last feed time to Firebase
   struct tm t;
   int nowMin = -1;
@@ -120,7 +121,11 @@ void parseSchedule(String data) {
   scheduleCount = newCount;
 
   if (changed) {
-    lastFedSlot = -1;
+    if (scheduleLoaded) {
+      lastFedSlot = -1;
+      prefs.putInt("slot", -1);
+    }
+    scheduleLoaded = true;
     Serial.print("Schedule updated: ");
     for (int i = 0; i < scheduleCount; i++) { Serial.print(scheduleSlots[i]); Serial.print(" "); }
     Serial.println();
@@ -145,7 +150,7 @@ void setup() {
   ESP32PWM::allocateTimer(0);
   servo.setPeriodHertz(50);
   servo.attach(servoPin, 500, 2400);
-  servo.write(0);
+  servo.write(90); // stopped
 
   // WiFi
   WiFi.begin(WIFI_SSID, WIFI_PASS);
