@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Aperçu des états de l'interface : stock critique, hors ligne, distribution en cours.">
+<meta name="theme-color" content="#1B1B28">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pet Feeder">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Pet Feeder — États du distributeur">
+<meta property="og:description" content="Aperçu des états de l'interface Pet Feeder.">
+<meta property="og:image" content="./icon.svg">
+<meta property="og:locale" content="fr_FR">
+<title>Pet Feeder — États</title>
+<link rel="icon" type="image/svg+xml" href="./favicon.svg">
+<link rel="apple-touch-icon" href="./icon.svg">
+<link rel="manifest" href="./manifest.json">
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("./service-worker.js").catch(function () {});
+    });
+  }
+</script>
+<script src="./support.js"></script>
+<!-- Firebase SDK v8 (compat) -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<script src="./js/firebase-config.js"></script>
+<script src="./js/auth.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta name="design_doc_mode" content="canvas">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    @keyframes pulseRed {
+      0%, 100% { opacity: 0.6; }
+      50% { opacity: 1; }
+    }
+    @keyframes pulseRedGlow {
+      0%, 100% { box-shadow: 0 0 20px rgba(207,88,88,0.15), 0 0 40px rgba(207,88,88,0.05); }
+      50% { box-shadow: 0 0 30px rgba(207,88,88,0.25), 0 0 60px rgba(207,88,88,0.1); }
+    }
+    @keyframes offlinePulse {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 0.7; }
+    }
+    @keyframes dispenseSpin {
+      to { transform: rotate(360deg); }
+    }
+    @keyframes dispenseFlow {
+      0% { transform: translateY(-8px); opacity: 0; }
+      50% { opacity: 1; }
+      100% { transform: translateY(8px); opacity: 0; }
+    }
+    @keyframes dispenseGlow {
+      0%, 100% { box-shadow: 0 0 30px rgba(201,169,110,0.3), 0 0 60px rgba(201,169,110,0.15); }
+      50% { box-shadow: 0 0 50px rgba(201,169,110,0.45), 0 0 80px rgba(201,169,110,0.2); }
+    }
+    @keyframes progressBar {
+      0% { width: 0%; }
+      100% { width: 72%; }
+    }
+    @keyframes shimmer {
+      0% { background-position: -200% center; }
+      100% { background-position: 200% center; }
+    }
+    @keyframes presenceWave {
+      0% { transform: scale(1); opacity: 0.5; }
+      100% { transform: scale(2.2); opacity: 0; }
+    }
+    @keyframes scanLine {
+      0% { top: 20%; opacity: 0; }
+      10% { opacity: 1; }
+      90% { opacity: 1; }
+      100% { top: 80%; opacity: 0; }
+    }
+    body { margin: 0; padding: 0; }
+  </style>
+</helmet>
+
+<!-- ══════════════════════════════════════════════ -->
+<!--  FRAME 1 — STOCK CRITIQUE                    -->
+<!-- ══════════════════════════════════════════════ -->
+<div style="position: absolute; left: 0; top: 0; width: 375px">
+  <div style="font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.55); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 16px; padding: 0 4px" data-drags-parent="1">Stock critique</div>
+  <div style="background: #fff; border-radius: 2px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); overflow: hidden">
+    <div style="height: 812px; background: linear-gradient(175deg, #1B1B28 0%, #22223A 40%, #1E1E30 100%); position: relative; overflow: hidden; font-family: 'DM Sans', sans-serif">
+
+      <!-- Red ambient glow for urgency -->
+      <div style="position: absolute; top: -80px; right: -60px; width: 300px; height: 300px; border-radius: 50%; background: radial-gradient(circle, rgba(207,88,88,0.06) 0%, transparent 70%); pointer-events: none; animation: pulseRed 3s ease-in-out infinite"></div>
+
+      <!-- Header -->
+      <div style="padding: 56px 24px 20px; display: flex; align-items: center; justify-content: space-between">
+        <div style="display: flex; flex-direction: column; gap: 4px">
+          <div style="font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 600; color: #F2EDE7">Pet Feeder</div>
+          <div style="display: flex; align-items: center; gap: 6px">
+            <div style="width: 7px; height: 7px; border-radius: 50%; background: #5BCC7E; box-shadow: 0 0 8px rgba(91,204,126,0.4)"></div>
+            <span style="font-size: 11px; font-weight: 400; color: rgba(242,237,231,0.4)">Connecté</span>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 14px">
+          <div style="width: 40px; height: 40px; border-radius: 12px; background: rgba(207,88,88,0.1); border: 1px solid rgba(207,88,88,0.15); display: flex; align-items: center; justify-content: center; position: relative">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(207,88,88,0.7)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
+            <div style="position: absolute; top: 7px; right: 8px; width: 8px; height: 8px; border-radius: 50%; background: #CF5858; border: 1.5px solid #1B1B28"></div>
+          </div>
+          <div style="width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(135deg, rgba(201,169,110,0.2), rgba(201,169,110,0.1)); border: 1px solid rgba(201,169,110,0.2); display: flex; align-items: center; justify-content: center">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C9A96E" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 12 0v1"/></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Alert banner -->
+      <div style="margin: 4px 20px 18px; padding: 14px 18px; background: linear-gradient(135deg, rgba(207,88,88,0.1) 0%, rgba(207,88,88,0.04) 100%); border: 1px solid rgba(207,88,88,0.15); border-radius: 14px; display: flex; align-items: center; gap: 14px">
+        <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(207,88,88,0.12); display: flex; align-items: center; justify-content: center; flex-shrink: 0">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#CF5858" stroke-width="1.8" stroke-linecap="round">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+        </div>
+        <div style="flex: 1">
+          <div style="font-size: 13px; font-weight: 500; color: #CF5858; margin-bottom: 2px">Réserve critique</div>
+          <div style="font-size: 11.5px; font-weight: 400; color: rgba(242,237,231,0.35)">Rechargez avant le prochain repas</div>
+        </div>
+      </div>
+
+      <!-- Pet card -->
+      <div style="margin: 0 20px 18px; padding: 18px 20px; background: linear-gradient(135deg, rgba(201,169,110,0.08) 0%, rgba(255,255,255,0.03) 100%); border: 1px solid rgba(201,169,110,0.1); border-radius: 18px; display: flex; align-items: center; gap: 16px">
+        <div style="position: relative; flex-shrink: 0">
+          <div style="width: 48px; height: 48px; border-radius: 14px; background: linear-gradient(135deg, #C9A96E, #B8935A); display: flex; align-items: center; justify-content: center">
+            <svg width="26" height="26" viewBox="0 0 38 38" fill="none">
+              <path d="M8 30 C8 30 7 18 10 13 C11.5 10 13 8 14 5 C14.5 3.5 16 3.5 16 5.5 L16 12 C16 12 17.5 10.5 19 10.5 C20.5 10.5 22 12 22 12 L22 5.5 C22 3.5 23.5 3.5 24 5 C25 8 26.5 10 28 13 C31 18 30 30 30 30" stroke="#1B1B28" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="rgba(27,27,40,0.12)"/>
+              <circle cx="15" cy="18" r="1.5" fill="#1B1B28"/><circle cx="23" cy="18" r="1.5" fill="#1B1B28"/>
+            </svg>
+          </div>
+          <div style="position: absolute; bottom: -2px; right: -2px; width: 14px; height: 14px; border-radius: 50%; background: #5BCC7E; border: 2px solid #1E1E30">
+            <div style="position: absolute; width: 100%; height: 100%; border-radius: 50%; background: #5BCC7E; animation: presenceWave 2s ease-out infinite"></div>
+          </div>
+        </div>
+        <div style="flex: 1">
+          <div style="font-family: 'Playfair Display', serif; font-size: 16px; font-weight: 600; color: #F2EDE7">Milo</div>
+          <div style="font-size: 12px; font-weight: 400; color: rgba(242,237,231,0.4)">Détecté à proximité</div>
+        </div>
+      </div>
+
+      <!-- Gauge — critical state -->
+      <div style="margin: 0 20px 22px; padding: 28px 24px 24px; background: linear-gradient(175deg, rgba(207,88,88,0.04) 0%, rgba(255,255,255,0.02) 100%); border: 1px solid rgba(207,88,88,0.1); border-radius: 22px; animation: pulseRedGlow 3s ease-in-out infinite">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px">
+          <div style="font-size: 11px; font-weight: 500; color: rgba(207,88,88,0.7); letter-spacing: 1.5px; text-transform: uppercase">Niveau de réserve</div>
+          <div style="font-size: 11px; font-weight: 400; color: rgba(242,237,231,0.3)">Capacité 2kg</div>
+        </div>
+        <div style="display: flex; justify-content: center; margin-bottom: 20px">
+          <div style="position: relative; width: 170px; height: 170px">
+            <svg width="170" height="170" viewBox="0 0 180 180" style="transform: rotate(-90deg)">
+              <circle cx="90" cy="90" r="76" fill="none" stroke="rgba(207,88,88,0.08)" stroke-width="10" stroke-linecap="round" stroke-dasharray="380 478"/>
+              <circle cx="90" cy="90" r="76" fill="none" stroke="url(#critGrad)" stroke-width="10" stroke-linecap="round" stroke-dasharray="30 478"/>
+              <defs>
+                <linearGradient id="critGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#CF5858"/>
+                  <stop offset="100%" stop-color="#E87A7A"/>
+                </linearGradient>
+              </defs>
+            </svg>
+            <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center">
+              <div style="font-family: 'Playfair Display', serif; font-size: 42px; font-weight: 700; color: #CF5858; line-height: 1">8%</div>
+              <div style="font-size: 13px; font-weight: 400; color: rgba(207,88,88,0.5); margin-top: 2px">restant</div>
+            </div>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px">
+          <div style="flex: 1; height: 5px; border-radius: 3px; background: rgba(255,255,255,0.06); overflow: hidden">
+            <div style="width: 8%; height: 100%; border-radius: 3px; background: linear-gradient(90deg, #CF5858, #E87A7A)"></div>
+          </div>
+          <div style="font-size: 12px; font-weight: 500; color: #CF5858; white-space: nowrap; animation: pulseRed 2s ease-in-out infinite">Critique</div>
+        </div>
+      </div>
+
+      <!-- Meal times -->
+      <div style="display: flex; gap: 12px; margin: 0 20px 18px">
+        <div style="flex: 1; padding: 18px 16px; background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px">
+          <div style="font-size: 10px; font-weight: 500; color: rgba(201,169,110,0.45); letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 10px">Dernier repas</div>
+          <div style="font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 600; color: #F2EDE7; margin-bottom: 3px">08:30</div>
+          <div style="font-size: 11px; font-weight: 400; color: rgba(242,237,231,0.3)">Ce matin · 45g</div>
+        </div>
+        <div style="flex: 1; padding: 18px 16px; background: linear-gradient(175deg, rgba(207,88,88,0.06) 0%, rgba(255,255,255,0.02) 100%); border: 1px solid rgba(207,88,88,0.1); border-radius: 16px">
+          <div style="font-size: 10px; font-weight: 500; color: rgba(207,88,88,0.6); letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 10px">Prochain repas</div>
+          <div style="font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 600; color: #CF5858; margin-bottom: 3px">12:30</div>
+          <div style="font-size: 11px; font-weight: 400; color: rgba(207,88,88,0.4)">Stock insuffisant</div>
+        </div>
+      </div>
+
+      <!-- Recharge CTA -->
+      <div style="margin: 8px 20px 20px">
+        <button style="width: 100%; padding: 18px 24px; background: linear-gradient(135deg, rgba(207,88,88,0.15) 0%, rgba(207,88,88,0.08) 100%); border: 1px solid rgba(207,88,88,0.2); border-radius: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 12px">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#CF5858" stroke-width="1.8" stroke-linecap="round">
+            <path d="M12 5v14M5 12h14"/>
+          </svg>
+          <span style="font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 600; color: #CF5858; letter-spacing: 0.3px">Recharger la réserve</span>
+        </button>
+      </div>
+
+      <!-- Bottom nav -->
+      <div style="position: absolute; bottom: 0; left: 0; right: 0; padding: 12px 20px 28px; background: linear-gradient(to top, #1B1B28 60%, transparent); display: flex; align-items: center; justify-content: space-around">
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 16px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C9A96E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><div style="width: 4px; height: 4px; border-radius: 50%; background: #C9A96E"></div></div>
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 16px; opacity: 0.4"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F2EDE7" stroke-width="1.5" stroke-linecap="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg><div style="width: 4px; height: 4px; border-radius: 50%; background: transparent"></div></div>
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 16px; opacity: 0.4"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F2EDE7" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><div style="width: 4px; height: 4px; border-radius: 50%; background: transparent"></div></div>
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 16px; opacity: 0.4"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F2EDE7" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><div style="width: 4px; height: 4px; border-radius: 50%; background: transparent"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ -->
+<!--  FRAME 2 — HORS LIGNE                        -->
+<!-- ══════════════════════════════════════════════ -->
+<div style="position: absolute; left: 455px; top: 0; width: 375px">
+  <div style="font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.55); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 16px; padding: 0 4px" data-drags-parent="1">Hors ligne</div>
+  <div style="background: #fff; border-radius: 2px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); overflow: hidden">
+    <div style="height: 812px; background: linear-gradient(175deg, #1B1B28 0%, #1E1E2E 40%, #1A1A2A 100%); position: relative; overflow: hidden; font-family: 'DM Sans', sans-serif">
+
+      <!-- Muted overlay feel -->
+      <div style="position: absolute; inset: 0; background: rgba(20,20,32,0.25); pointer-events: none; z-index: 1"></div>
+
+      <!-- Header -->
+      <div style="padding: 56px 24px 20px; display: flex; align-items: center; justify-content: space-between; position: relative; z-index: 2">
+        <div style="display: flex; flex-direction: column; gap: 4px">
+          <div style="font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 600; color: rgba(242,237,231,0.5)">Pet Feeder</div>
+          <div style="display: flex; align-items: center; gap: 6px">
+            <div style="width: 7px; height: 7px; border-radius: 50%; background: rgba(242,237,231,0.2); animation: offlinePulse 2s ease-in-out infinite"></div>
+            <span style="font-size: 11px; font-weight: 400; color: rgba(242,237,231,0.25)">Hors ligne</span>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 14px">
+          <div style="width: 40px; height: 40px; border-radius: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.04); display: flex; align-items: center; justify-content: center">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(242,237,231,0.2)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
+          </div>
+          <div style="width: 40px; height: 40px; border-radius: 12px; background: rgba(201,169,110,0.08); border: 1px solid rgba(201,169,110,0.08); display: flex; align-items: center; justify-content: center">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(201,169,110,0.4)" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 12 0v1"/></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Offline hero card -->
+      <div style="margin: 16px 20px 24px; padding: 40px 24px; background: linear-gradient(175deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%); border: 1px solid rgba(255,255,255,0.05); border-radius: 22px; display: flex; flex-direction: column; align-items: center; position: relative; z-index: 2">
+        <!-- Disconnected icon -->
+        <div style="width: 80px; height: 80px; border-radius: 22px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: center; margin-bottom: 24px; position: relative">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="rgba(242,237,231,0.25)" stroke-width="1.3" stroke-linecap="round">
+            <path d="M1 1l22 22"/>
+            <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/>
+            <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/>
+            <path d="M10.71 5.05A16 16 0 0 1 22.56 9"/>
+            <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/>
+            <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+            <line x1="12" y1="20" x2="12.01" y2="20"/>
+          </svg>
+          <!-- Subtle scan line -->
+          <div style="position: absolute; left: 10%; right: 10%; height: 1px; background: linear-gradient(90deg, transparent, rgba(242,237,231,0.08), transparent); animation: scanLine 3s ease-in-out infinite"></div>
+        </div>
+
+        <div style="font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 600; color: rgba(242,237,231,0.5); margin-bottom: 8px; text-align: center">Connexion perdue</div>
+        <div style="font-size: 13px; font-weight: 400; color: rgba(242,237,231,0.25); text-align: center; line-height: 1.6; max-width: 260px; margin-bottom: 28px">Le distributeur ne répond pas. Vérifiez votre connexion Wi-Fi ou rapprochez l'appareil du routeur.</div>
+
+        <button style="padding: 14px 32px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; cursor: pointer; display: flex; align-items: center; gap: 10px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(242,237,231,0.4)" stroke-width="1.8" stroke-linecap="round">
+            <path d="M23 4v6h-6"/><path d="M1 20v-6h6"/>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+          </svg>
+          <span style="font-size: 13px; font-weight: 500; color: rgba(242,237,231,0.45)">Réessayer la connexion</span>
+        </button>
+      </div>
+
+      <!-- Dimmed last known state -->
+      <div style="margin: 0 20px 16px; position: relative; z-index: 2">
+        <div style="font-size: 10px; font-weight: 500; color: rgba(242,237,231,0.15); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 14px">Dernières données connues</div>
+        <div style="display: flex; gap: 12px">
+          <div style="flex: 1; padding: 16px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.03); border-radius: 14px">
+            <div style="font-size: 10px; font-weight: 400; color: rgba(242,237,231,0.15); letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 8px">Réserve</div>
+            <div style="font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 600; color: rgba(242,237,231,0.2)">68%</div>
+          </div>
+          <div style="flex: 1; padding: 16px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.03); border-radius: 14px">
+            <div style="font-size: 10px; font-weight: 400; color: rgba(242,237,231,0.15); letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 8px">Dernier repas</div>
+            <div style="font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 600; color: rgba(242,237,231,0.2)">08:30</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Offline time -->
+      <div style="margin: 0 20px; padding: 14px 18px; background: rgba(255,255,255,0.015); border: 1px solid rgba(255,255,255,0.03); border-radius: 12px; display: flex; align-items: center; gap: 12px; position: relative; z-index: 2">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(242,237,231,0.15)" stroke-width="1.5" stroke-linecap="round">
+          <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+        </svg>
+        <div style="font-size: 12px; font-weight: 400; color: rgba(242,237,231,0.2)">Déconnecté depuis 14 minutes</div>
+      </div>
+
+      <!-- Bottom nav -->
+      <div style="position: absolute; bottom: 0; left: 0; right: 0; padding: 12px 20px 28px; background: linear-gradient(to top, #1A1A2A 60%, transparent); display: flex; align-items: center; justify-content: space-around; z-index: 2">
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 16px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(201,169,110,0.4)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><div style="width: 4px; height: 4px; border-radius: 50%; background: rgba(201,169,110,0.4)"></div></div>
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 16px; opacity: 0.25"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F2EDE7" stroke-width="1.5" stroke-linecap="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg><div style="width: 4px; height: 4px; border-radius: 50%; background: transparent"></div></div>
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 16px; opacity: 0.25"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F2EDE7" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><div style="width: 4px; height: 4px; border-radius: 50%; background: transparent"></div></div>
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 16px; opacity: 0.25"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F2EDE7" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><div style="width: 4px; height: 4px; border-radius: 50%; background: transparent"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ -->
+<!--  FRAME 3 — DISTRIBUTION EN COURS             -->
+<!-- ══════════════════════════════════════════════ -->
+<div style="position: absolute; left: 910px; top: 0; width: 375px">
+  <div style="font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.55); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 16px; padding: 0 4px" data-drags-parent="1">Distribution en cours</div>
+  <div style="background: #fff; border-radius: 2px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); overflow: hidden">
+    <div style="height: 812px; background: linear-gradient(175deg, #1B1B28 0%, #22223A 40%, #1E1E30 100%); position: relative; overflow: hidden; font-family: 'DM Sans', sans-serif">
+
+      <!-- Golden ambient glow — intensified -->
+      <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 400px; height: 400px; border-radius: 50%; background: radial-gradient(circle, rgba(201,169,110,0.08) 0%, transparent 65%); pointer-events: none"></div>
+
+      <!-- Header -->
+      <div style="padding: 56px 24px 20px; display: flex; align-items: center; justify-content: space-between">
+        <div style="display: flex; flex-direction: column; gap: 4px">
+          <div style="font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 600; color: #F2EDE7">Pet Feeder</div>
+          <div style="display: flex; align-items: center; gap: 6px">
+            <div style="width: 7px; height: 7px; border-radius: 50%; background: #C9A96E; box-shadow: 0 0 8px rgba(201,169,110,0.5)"></div>
+            <span style="font-size: 11px; font-weight: 400; color: rgba(201,169,110,0.6)">Distribution active</span>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 14px">
+          <div style="width: 40px; height: 40px; border-radius: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.07); display: flex; align-items: center; justify-content: center; position: relative">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(242,237,231,0.5)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          </div>
+          <div style="width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(135deg, rgba(201,169,110,0.2), rgba(201,169,110,0.1)); border: 1px solid rgba(201,169,110,0.2); display: flex; align-items: center; justify-content: center">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C9A96E" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 12 0v1"/></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pet card -->
+      <div style="margin: 8px 20px 18px; padding: 18px 20px; background: linear-gradient(135deg, rgba(201,169,110,0.08) 0%, rgba(255,255,255,0.03) 100%); border: 1px solid rgba(201,169,110,0.1); border-radius: 18px; display: flex; align-items: center; gap: 16px">
+        <div style="position: relative; flex-shrink: 0">
+          <div style="width: 48px; height: 48px; border-radius: 14px; background: linear-gradient(135deg, #C9A96E, #B8935A); display: flex; align-items: center; justify-content: center">
+            <svg width="26" height="26" viewBox="0 0 38 38" fill="none">
+              <path d="M8 30 C8 30 7 18 10 13 C11.5 10 13 8 14 5 C14.5 3.5 16 3.5 16 5.5 L16 12 C16 12 17.5 10.5 19 10.5 C20.5 10.5 22 12 22 12 L22 5.5 C22 3.5 23.5 3.5 24 5 C25 8 26.5 10 28 13 C31 18 30 30 30 30" stroke="#1B1B28" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="rgba(27,27,40,0.12)"/>
+              <circle cx="15" cy="18" r="1.5" fill="#1B1B28"/><circle cx="23" cy="18" r="1.5" fill="#1B1B28"/>
+            </svg>
+          </div>
+          <div style="position: absolute; bottom: -2px; right: -2px; width: 14px; height: 14px; border-radius: 50%; background: #5BCC7E; border: 2px solid #1E1E30">
+            <div style="position: absolute; width: 100%; height: 100%; border-radius: 50%; background: #5BCC7E; animation: presenceWave 2s ease-out infinite"></div>
+          </div>
+        </div>
+        <div style="flex: 1">
+          <div style="font-family: 'Playfair Display', serif; font-size: 16px; font-weight: 600; color: #F2EDE7">Milo</div>
+          <div style="font-size: 12px; font-weight: 400; color: rgba(242,237,231,0.4)">En attente de son repas</div>
+        </div>
+      </div>
+
+      <!-- Distribution hero card -->
+      <div style="margin: 0 20px 22px; padding: 36px 24px; background: linear-gradient(175deg, rgba(201,169,110,0.06) 0%, rgba(255,255,255,0.02) 100%); border: 1px solid rgba(201,169,110,0.12); border-radius: 22px; display: flex; flex-direction: column; align-items: center; animation: dispenseGlow 2s ease-in-out infinite">
+
+        <!-- Animated dispense icon -->
+        <div style="position: relative; width: 100px; height: 100px; margin-bottom: 24px">
+          <!-- Outer ring spinning -->
+          <div style="position: absolute; inset: 0; border-radius: 50%; border: 2px solid transparent; border-top-color: rgba(201,169,110,0.4); border-right-color: rgba(201,169,110,0.15); animation: dispenseSpin 2s linear infinite"></div>
+          <!-- Inner ring spinning reverse -->
+          <div style="position: absolute; inset: 12px; border-radius: 50%; border: 1.5px solid transparent; border-bottom-color: rgba(201,169,110,0.3); border-left-color: rgba(201,169,110,0.1); animation: dispenseSpin 1.5s linear infinite reverse"></div>
+          <!-- Center icon -->
+          <div style="position: absolute; inset: 24px; border-radius: 50%; background: linear-gradient(135deg, rgba(201,169,110,0.12), rgba(201,169,110,0.04)); display: flex; align-items: center; justify-content: center">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#C9A96E" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3C12 3 4 8 4 13C4 17 7.5 20 12 20C16.5 20 20 17 20 13C20 8 12 3 12 3Z"/>
+              <!-- Flow particles -->
+              <circle cx="10" cy="13" r="1" fill="#C9A96E" opacity="0.7" style="animation: dispenseFlow 1.2s ease-in-out infinite"/>
+              <circle cx="14" cy="12" r="0.8" fill="#C9A96E" opacity="0.5" style="animation: dispenseFlow 1.2s ease-in-out 0.3s infinite"/>
+              <circle cx="12" cy="14" r="0.9" fill="#C9A96E" opacity="0.6" style="animation: dispenseFlow 1.2s ease-in-out 0.6s infinite"/>
+            </svg>
+          </div>
+        </div>
+
+        <div style="font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 600; color: #C9A96E; margin-bottom: 6px">Distribution en cours</div>
+        <div style="font-size: 13px; font-weight: 400; color: rgba(242,237,231,0.35); margin-bottom: 24px">Portion de 50g · Croquettes premium</div>
+
+        <!-- Progress bar -->
+        <div style="width: 100%; margin-bottom: 12px">
+          <div style="height: 4px; border-radius: 2px; background: rgba(255,255,255,0.06); overflow: hidden; position: relative">
+            <div style="height: 100%; border-radius: 2px; background: linear-gradient(90deg, #B8935A, #C9A96E, #D4B87A); animation: progressBar 4s ease-out forwards; position: relative">
+              <div style="position: absolute; inset: 0; background: linear-gradient(90deg, transparent 40%, rgba(255,255,255,0.3) 50%, transparent 60%); background-size: 200% 100%; animation: shimmer 1.5s ease-in-out infinite"></div>
+            </div>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%">
+          <div style="font-size: 11px; font-weight: 400; color: rgba(242,237,231,0.25)">36g distribués</div>
+          <div style="font-size: 11px; font-weight: 500; color: rgba(201,169,110,0.5)">50g</div>
+        </div>
+      </div>
+
+      <!-- Stats during dispense -->
+      <div style="display: flex; gap: 12px; margin: 0 20px 18px">
+        <div style="flex: 1; padding: 18px 16px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 16px; text-align: center">
+          <div style="font-size: 10px; font-weight: 500; color: rgba(201,169,110,0.45); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px">Durée</div>
+          <div style="font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 600; color: #F2EDE7">12s</div>
+        </div>
+        <div style="flex: 1; padding: 18px 16px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 16px; text-align: center">
+          <div style="font-size: 10px; font-weight: 500; color: rgba(201,169,110,0.45); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px">Vitesse</div>
+          <div style="font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 600; color: #F2EDE7">3g/s</div>
+        </div>
+        <div style="flex: 1; padding: 18px 16px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 16px; text-align: center">
+          <div style="font-size: 10px; font-weight: 500; color: rgba(201,169,110,0.45); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px">Réserve</div>
+          <div style="font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 600; color: #F2EDE7">65%</div>
+        </div>
+      </div>
+
+      <!-- Cancel button -->
+      <div style="margin: 8px 20px">
+        <button style="width: 100%; padding: 16px 24px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(242,237,231,0.4)" stroke-width="1.8" stroke-linecap="round">
+            <rect x="3" y="3" width="18" height="18" rx="3"/>
+          </svg>
+          <span style="font-size: 14px; font-weight: 500; color: rgba(242,237,231,0.45)">Arrêter la distribution</span>
+        </button>
+      </div>
+
+      <!-- Bottom nav -->
+      <div style="position: absolute; bottom: 0; left: 0; right: 0; padding: 12px 20px 28px; background: linear-gradient(to top, #1B1B28 60%, transparent); display: flex; align-items: center; justify-content: space-around">
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 16px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C9A96E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><div style="width: 4px; height: 4px; border-radius: 50%; background: #C9A96E"></div></div>
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 16px; opacity: 0.4"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F2EDE7" stroke-width="1.5" stroke-linecap="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg><div style="width: 4px; height: 4px; border-radius: 50%; background: transparent"></div></div>
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 16px; opacity: 0.4"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F2EDE7" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><div style="width: 4px; height: 4px; border-radius: 50%; background: transparent"></div></div>
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 16px; opacity: 0.4"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F2EDE7" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><div style="width: 4px; height: 4px; border-radius: 50%; background: transparent"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
