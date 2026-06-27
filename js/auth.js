@@ -114,6 +114,14 @@
           return "Trop de tentatives. Réessayez dans quelques instants.";
         case "auth/network-request-failed":
           return "Problème de connexion réseau. Vérifiez votre connexion.";
+        case "auth/popup-blocked":
+          return "Veuillez autoriser les pop-ups pour vous connecter.";
+        case "auth/account-exists-with-different-credential":
+          return "Un compte existe déjà avec cette adresse via une autre méthode.";
+        case "auth/unauthorized-domain":
+          return "Ce domaine n'est pas autorisé dans la console Firebase.";
+        case "auth/operation-not-allowed":
+          return "Cette méthode de connexion n'est pas activée dans Firebase.";
         default:
           return "Connexion impossible. Réessayez.";
       }
@@ -160,6 +168,56 @@
     // Effacer l'erreur dès que l'utilisateur recommence à taper.
     emailInput.addEventListener("input", clearError);
     passwordInput.addEventListener("input", clearError);
+
+    // --- Connexion via fournisseurs (Google / Apple) --------------------
+    // Les boutons sociaux n'ont ni id ni classe dans le design : on les
+    // repère par leur logo SVG, sans modifier le HTML.
+    var social = findSocialButtons();
+
+    if (social.google) {
+      social.google.addEventListener("click", function (e) {
+        e.preventDefault();
+        if (social.google.disabled) return;
+        clearError();
+        social.google.disabled = true;
+        auth
+          .signInWithPopup(new firebase.auth.GoogleAuthProvider())
+          .then(function () {
+            // Succès : onAuthStateChanged redirige aussi, mais on accélère.
+            location.replace(DASHBOARD_URL);
+          })
+          .catch(function (err) {
+            var code = err && err.code;
+            // Pop-up fermée/annulée par l'utilisateur : pas d'erreur affichée.
+            if (code !== "auth/popup-closed-by-user" &&
+                code !== "auth/cancelled-popup-request") {
+              showError(mapError(code));
+            }
+            social.google.disabled = false;
+          });
+      });
+    }
+
+    if (social.apple) {
+      // Apple Sign-In nécessite une configuration serveur complexe : non
+      // disponible ici, on informe l'utilisateur au clic.
+      social.apple.addEventListener("click", function (e) {
+        e.preventDefault();
+        showError("Connexion Apple non disponible pour le moment.");
+      });
+    }
+  }
+
+  // Repère les boutons sociaux par le contenu de leur SVG (pas d'id/classe).
+  function findSocialButtons() {
+    var res = { google: null, apple: null };
+    var buttons = document.querySelectorAll("button");
+    for (var i = 0; i < buttons.length; i++) {
+      var html = buttons[i].innerHTML || "";
+      if (!res.google && /4285F4/i.test(html)) res.google = buttons[i];
+      else if (!res.apple && html.indexOf("M18.71 19.5") !== -1) res.apple = buttons[i];
+    }
+    return res;
   }
 
   // ========================================================================
