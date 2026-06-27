@@ -145,8 +145,16 @@
     emailInput.addEventListener("input", clearError);
     passwordInput.addEventListener("input", clearError);
 
-    // --- Connexion Google (bouton ciblé par son logo SVG) ---------------
-    waitForElement('button:has(path[fill="#4285F4"])', function (googleBtn) {
+    // --- Boutons sociaux (classe scp4, sans id ni texte) ----------------
+    // Index 0 = Google, index 1 = Apple. On attend que les deux existent.
+    waitForElement(function () {
+      var btns = document.querySelectorAll("button.scp4");
+      return btns.length >= 2 ? btns : null;
+    }, function (btns) {
+      var googleBtn = btns[0];
+      var appleBtn = btns[1];
+
+      // Connexion Google
       googleBtn.addEventListener("click", function (e) {
         e.preventDefault();
         if (googleBtn.disabled) return;
@@ -165,10 +173,8 @@
             googleBtn.disabled = false;
           });
       });
-    });
 
-    // --- Bouton Apple : non disponible (Sign-In Apple = config serveur) -
-    waitForElement('button:has(path[d^="M18.71 19.5"])', function (appleBtn) {
+      // Bouton Apple : non disponible (Sign-In Apple = config serveur)
       appleBtn.addEventListener("click", function (e) {
         e.preventDefault();
         showError("Connexion Apple non disponible pour le moment.");
