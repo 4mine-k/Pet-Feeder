@@ -1,0 +1,434 @@
+// Interactions utilisateur qui ÉCRIVENT dans Firebase (côté app → ESP32).
+// Branché sur les dashboards live (mobile + desktop). Aucun style du design
+// n'est modifié : les éléments ajoutés (modale, lignes d'horaires, bouton de
+// suppression) réutilisent les tokens de la charte et vivent soit hors du
+// conteneur React (modale), soit dans une section statique que React ne
+// réécrit pas (liste d'horaires).
+//
+//  - Bouton "Nourrir maintenant" → confirmation puis /feedNow = 1, anti-spam 10s
+//  - Horaires → charge /schedule, ajout (validation HH:MM + anti-doublon),
+//    suppression, tri chronologique, réécriture du CSV
+//  - Sync temps → /currentTime = minutes depuis minuit, immédiat + toutes les 60s
+
+(function () {
+  "use strict";
+
+  if (typeof firebase === "undefined" || !firebase.database) {
+    console.error("[controls] Firebase Database n'est pas chargé.");
+    return;
+  }
+
+  var base = decodeURIComponent(location.pathname).split("/").pop();
+  if (base !== "Dashboard.dc.html" && base !== "Dashboard Desktop.dc.html") {
+    return;
+  }
+
+  var db = firebase.database();
+  var HM_RE = /^([01]?\d|2[0-3]):([0-5]\d)$/;
+
+  // ======================================================================
+  //  Synchronisation du temps (indépendant du DOM)
+  // ======================================================================
+  function nowMinutes() {
+    var d = new Date();
+    return d.getHours() * 60 + d.getMinutes();
+  }
+  function pushTime() {
+    db.ref("/currentTime").set(nowMinutes()).catch(function (e) {
+      console.warn("[controls] écriture /currentTime échouée :", e);
+    });
+  }
+  pushTime();                       // immédiat au chargement
+  setInterval(pushTime, 60 * 1000); // puis toutes les 60 secondes
+
+  // ======================================================================
+  //  Helpers DOM
+  // ======================================================================
+  function root() { return document.getElementById("dc-root") || document.body; }
+  function findInScope(scope, pred) {
+    if (!scope) return null;
+    var els = scope.querySelectorAll("*");
+    for (var i = 0; i < els.length; i++) {
+      var e = els[i];
+      if (e.children.length === 0 && pred((e.textContent || "").trim(), e)) return e;
+    }
+    return null;
+  }
+  function findLeafText(str) {
+    return findInScope(root(), function (t) { return t === str; });
+  }
+  function timeLeafIn(scope) {
+    return findInScope(scope, function (t) { return /^\d{1,2}:\d{2}$/.test(t); });
+  }
+  function pad2(n) { return (n < 10 ? "0" : "") + n; }
+  function parseHM(s) {
+    var m = HM_RE.exec((s || "").trim());
+    return m ? parseInt(m[1], 10) * 60 + parseInt(m[2], 10) : null;
+  }
+  function normHM(s) {
+    var m = HM_RE.exec((s || "").trim());
+    return m ? pad2(parseInt(m[1], 10)) + ":" + m[2] : null;
+  }
+  function byTime(a, b) { return parseHM(a) - parseHM(b); }
+
+  function waitFor(test, cb) {
+    var found = test();
+    if (found) { cb(found); return; }
+    var obs = new MutationObserver(function () {
+      var el = test();
+      if (el) { obs.disconnect(); cb(el); }
+    });
+    obs.observe(document.documentElement, { childList: true, subtree: true });
+  }
+
+  // ======================================================================
+  //  Modale réutilisable (confirmation + saisie), hors du root React
+  // ======================================================================
+  function openModal(opts) {
+    var overlay = document.createElement("div");
+    overlay.style.cssText =
+      "position:fixed;inset:0;z-index:2147483600;display:flex;align-items:center;" +
+      "justify-content:center;padding:24px;box-sizing:border-box;" +
+      "background:rgba(15,15,24,0.62);backdrop-filter:blur(6px);" +
+      "-webkit-backdrop-filter:blur(6px);font-family:'DM Sans',sans-serif";
+
+    var card = document.createElement("div");
+    card.style.cssText =
+      "width:100%;max-width:360px;box-sizing:border-box;padding:28px 26px;" +
+      "background:linear-gradient(175deg,rgba(42,42,62,0.98) 0%,rgba(30,30,46,0.98) 100%);" +
+      "border:1px solid rgba(255,255,255,0.08);border-radius:20px;" +
+      "box-shadow:0 20px 60px rgba(0,0,0,0.5)";
+
+    var title = document.createElement("div");
+    title.textContent = opts.title || "";
+    title.style.cssText =
+      "font-family:'Playfair Display',serif;font-size:20px;font-weight:600;" +
+      "color:#F2EDE7;margin-bottom:10px";
+    card.appendChild(title);
+
+    if (opts.message) {
+      var msg = document.createElement("div");
+      msg.textContent = opts.message;
+      msg.style.cssText =
+        "font-size:14px;font-weight:300;line-height:1.5;color:rgba(242,237,231,0.5);" +
+        "margin-bottom:22px";
+      card.appendChild(msg);
+    }
+
+    var input = null, errEl = null;
+    if (opts.input) {
+      input = document.createElement("input");
+      input.type = "text";
+      input.inputMode = "numeric";
+      input.maxLength = 5;
+      input.placeholder = opts.input.placeholder || "HH:MM";
+      input.style.cssText =
+        "width:100%;box-sizing:border-box;margin-bottom:8px;padding:14px 16px;" +
+        "background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);" +
+        "border-radius:12px;font-family:'DM Sans',sans-serif;font-size:16px;" +
+        "color:#F2EDE7;outline:none;letter-spacing:1px;text-align:center";
+      card.appendChild(input);
+
+      errEl = document.createElement("div");
+      errEl.style.cssText =
+        "min-height:18px;font-size:12.5px;color:#EF6B6B;text-align:center;margin-bottom:14px";
+      card.appendChild(errEl);
+    }
+
+    var row = document.createElement("div");
+    row.style.cssText = "display:flex;gap:12px;margin-top:6px";
+
+    var cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.textContent = opts.cancelText || "Annuler";
+    cancel.style.cssText =
+      "flex:1;padding:14px;background:rgba(255,255,255,0.04);" +
+      "border:1px solid rgba(255,255,255,0.08);border-radius:12px;cursor:pointer;" +
+      "font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;" +
+      "color:rgba(242,237,231,0.6)";
+
+    var confirm = document.createElement("button");
+    confirm.type = "button";
+    confirm.textContent = opts.confirmText || "Confirmer";
+    confirm.style.cssText =
+      "flex:1;padding:14px;border:none;border-radius:12px;cursor:pointer;" +
+      "font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;color:#1B1B28;" +
+      "background:linear-gradient(135deg,#C9A96E 0%,#B8935A 60%,#D4B87A 100%);" +
+      "box-shadow:0 4px 16px rgba(201,169,110,0.25)";
+
+    row.appendChild(cancel);
+    row.appendChild(confirm);
+    card.appendChild(row);
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+
+    if (input) setTimeout(function () { input.focus(); }, 30);
+
+    function close() {
+      document.removeEventListener("keydown", onKey);
+      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    }
+    function doConfirm() {
+      var ok = opts.onConfirm
+        ? opts.onConfirm(input ? input.value : null, {
+            error: function (m) { if (errEl) errEl.textContent = m; }
+          })
+        : true;
+      if (ok !== false) close();
+    }
+    function onKey(e) {
+      if (e.key === "Escape") close();
+      else if (e.key === "Enter" && input) { e.preventDefault(); doConfirm(); }
+    }
+
+    confirm.addEventListener("click", doConfirm);
+    cancel.addEventListener("click", close);
+    overlay.addEventListener("click", function (e) { if (e.target === overlay) close(); });
+    document.addEventListener("keydown", onKey);
+  }
+
+  // ======================================================================
+  //  Bouton "Nourrir maintenant" → /feedNow = 1 (+ confirmation + anti-spam)
+  // ======================================================================
+  function setupFeed() {
+    var btn = null;
+    var buttons = root().querySelectorAll("button");
+    for (var i = 0; i < buttons.length; i++) {
+      if (/nourrir maintenant/i.test(buttons[i].textContent || "")) { btn = buttons[i]; break; }
+    }
+    if (!btn) return;
+
+    btn.addEventListener("click", function () {
+      if (btn.__feedLocked) return;
+      openModal({
+        title: "Nourrir maintenant",
+        message: "Distribuer une portion à Milo immédiatement ?",
+        confirmText: "Distribuer",
+        onConfirm: function () { sendFeed(btn); }
+      });
+    });
+  }
+
+  function sendFeed(btn) {
+    db.ref("/feedNow").set(1).catch(function (e) {
+      console.warn("[controls] écriture /feedNow échouée :", e);
+    });
+    lockFeed(btn);
+  }
+
+  function lockFeed(btn) {
+    if (btn.__feedLocked) return;
+    btn.__feedLocked = true;
+    var prev = {
+      opacity: btn.style.opacity,
+      pointerEvents: btn.style.pointerEvents,
+      cursor: btn.style.cursor
+    };
+    btn.style.opacity = "0.5";
+    btn.style.pointerEvents = "none";
+    btn.style.cursor = "default";
+    setTimeout(function () {
+      btn.style.opacity = prev.opacity;
+      btn.style.pointerEvents = prev.pointerEvents;
+      btn.style.cursor = prev.cursor;
+      btn.__feedLocked = false;
+    }, 10000); // anti-spam : 10 secondes
+  }
+
+  // ======================================================================
+  //  Gestion des horaires (/schedule)
+  // ======================================================================
+  var scheduleListEl = null;   // conteneur des lignes (mémorisé)
+  var currentTimes = [];       // horaires courants (HH:MM normalisés)
+
+  function findScheduleSection() {
+    var label = findLeafText("Horaires programmés") || findLeafText("Programmation");
+    if (!label) return null;
+    var node = label;
+    for (var d = 0; d < 6 && node; d++) {
+      node = node.parentElement;
+      if (!node) break;
+      var list = findRowsContainer(node);
+      if (list) return { section: node, list: list };
+    }
+    return null;
+  }
+  // Conteneur dont CHAQUE enfant direct contient une heure HH:MM.
+  function findRowsContainer(scope) {
+    var cand = scope.querySelectorAll("div");
+    for (var i = 0; i < cand.length; i++) {
+      var c = cand[i];
+      if (c.children.length < 1) continue;
+      var allTimes = true;
+      for (var j = 0; j < c.children.length; j++) {
+        if (!timeLeafIn(c.children[j])) { allTimes = false; break; }
+      }
+      if (allTimes) return c;
+    }
+    return null;
+  }
+  function findAddButton(section) {
+    var els = section.querySelectorAll("div");
+    for (var i = 0; i < els.length; i++) {
+      var e = els[i];
+      if (e.offsetWidth <= 40 && e.innerHTML.indexOf("M12 5v14") !== -1) return e;
+    }
+    return null;
+  }
+
+  function mealLabel(min) {
+    var h = Math.floor(min / 60);
+    if (h < 11) return "Matin";
+    if (h < 14) return "Midi";
+    if (h < 18) return "Après-midi";
+    return "Soir";
+  }
+
+  // Construit une ligne fidèle à la charte (mêmes couleurs / police / rayons).
+  function buildRow(t) {
+    var min = parseHM(t);
+    var row = document.createElement("div");
+    row.style.cssText =
+      "padding:16px 18px;background:rgba(255,255,255,0.035);" +
+      "border:1px solid rgba(255,255,255,0.06);border-radius:14px;" +
+      "display:flex;align-items:center;gap:14px";
+
+    var icon = document.createElement("div");
+    icon.style.cssText =
+      "width:42px;height:42px;border-radius:12px;flex-shrink:0;display:flex;" +
+      "align-items:center;justify-content:center;" +
+      "background:linear-gradient(135deg,rgba(201,169,110,0.12),rgba(201,169,110,0.05))";
+    icon.innerHTML =
+      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C9A96E" ' +
+      'stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/>' +
+      '<path d="M12 6v6l4 2"/></svg>';
+
+    var textCol = document.createElement("div");
+    textCol.style.cssText = "flex:1;display:flex;flex-direction:column;gap:2px";
+    var lbl = document.createElement("div");
+    lbl.textContent = mealLabel(min);
+    lbl.style.cssText = "font-size:14px;font-weight:500;color:#F2EDE7";
+    var sub = document.createElement("div");
+    sub.textContent = "Repas programmé";
+    sub.style.cssText = "font-size:12px;font-weight:400;color:rgba(242,237,231,0.35)";
+    textCol.appendChild(lbl);
+    textCol.appendChild(sub);
+
+    var time = document.createElement("div");
+    time.textContent = t;
+    time.style.cssText =
+      "font-family:'Playfair Display',serif;font-size:17px;font-weight:600;color:#F2EDE7";
+
+    var del = document.createElement("div");
+    del.title = "Supprimer";
+    del.style.cssText =
+      "width:32px;height:32px;border-radius:10px;flex-shrink:0;cursor:pointer;" +
+      "display:flex;align-items:center;justify-content:center;" +
+      "background:rgba(239,107,107,0.08);border:1px solid rgba(239,107,107,0.12);" +
+      "transition:background 0.2s ease";
+    del.innerHTML =
+      '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#EF6B6B" ' +
+      'stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>' +
+      '<path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>';
+    del.addEventListener("mouseenter", function () { del.style.background = "rgba(239,107,107,0.16)"; });
+    del.addEventListener("mouseleave", function () { del.style.background = "rgba(239,107,107,0.08)"; });
+    del.addEventListener("click", function () { removeTime(t); });
+
+    row.appendChild(icon);
+    row.appendChild(textCol);
+    row.appendChild(time);
+    row.appendChild(del);
+    return row;
+  }
+
+  function buildEmptyRow() {
+    var row = document.createElement("div");
+    row.style.cssText =
+      "padding:16px 18px;background:rgba(255,255,255,0.02);" +
+      "border:1px dashed rgba(255,255,255,0.08);border-radius:14px;text-align:center;" +
+      "font-size:12.5px;color:rgba(242,237,231,0.3)";
+    row.textContent = "Aucun horaire programmé";
+    return row;
+  }
+
+  function renderSchedule(csv) {
+    if (!scheduleListEl) return;
+    var times = String(csv || "")
+      .split(",")
+      .map(normHM)
+      .filter(Boolean);
+    times.sort(byTime);
+    currentTimes = times;
+
+    scheduleListEl.innerHTML = "";
+    if (!times.length) {
+      scheduleListEl.appendChild(buildEmptyRow());
+      return;
+    }
+    times.forEach(function (t) { scheduleListEl.appendChild(buildRow(t)); });
+  }
+
+  // Écrit la liste triée + dédoublonnée dans /schedule.
+  function writeSchedule(times) {
+    var seen = {}, uniq = [];
+    times.forEach(function (t) {
+      var n = normHM(t);
+      if (n && !seen[n]) { seen[n] = 1; uniq.push(n); }
+    });
+    uniq.sort(byTime);
+    db.ref("/schedule").set(uniq.join(",")).catch(function (e) {
+      console.warn("[controls] écriture /schedule échouée :", e);
+    });
+  }
+
+  function removeTime(t) {
+    writeSchedule(currentTimes.filter(function (x) { return x !== t; }));
+  }
+
+  function openAddSchedule() {
+    openModal({
+      title: "Ajouter un horaire",
+      message: "Indiquez l'heure du repas au format 24h.",
+      input: { placeholder: "HH:MM" },
+      confirmText: "Ajouter",
+      onConfirm: function (value, h) {
+        var n = normHM(value);
+        if (!n) { h.error("Format invalide. Utilisez HH:MM (ex. 08:30)."); return false; }
+        if (currentTimes.indexOf(n) !== -1) { h.error("Cet horaire existe déjà."); return false; }
+        writeSchedule(currentTimes.concat([n]));
+      }
+    });
+  }
+
+  function setupSchedule() {
+    var found = findScheduleSection();
+    if (!found) return;
+    scheduleListEl = found.list;
+
+    var addBtn = findAddButton(found.section);
+    if (addBtn) {
+      addBtn.style.cursor = "pointer";
+      addBtn.addEventListener("click", openAddSchedule);
+    }
+
+    // Charge les horaires et suit les changements.
+    db.ref("/schedule").on("value", function (snap) {
+      renderSchedule(snap.val() || "");
+    });
+  }
+
+  // ======================================================================
+  //  Démarrage après rendu du design
+  // ======================================================================
+  waitFor(function () {
+    var b = root().querySelectorAll("button");
+    for (var i = 0; i < b.length; i++) {
+      if (/nourrir maintenant/i.test(b[i].textContent || "")) return b[i];
+    }
+    return null;
+  }, function () {
+    setupFeed();
+    setupSchedule();
+  });
+})();
