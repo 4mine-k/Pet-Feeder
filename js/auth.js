@@ -1,31 +1,8 @@
-// Authentification Firebase (email / mot de passe) pour Pet Feeder.
-// Ce fichier branche la logique d'auth sur le design existant SANS le modifier :
-// - il attend que le runtime (support.js) ait rendu le DOM, puis attache les
-//   gestionnaires sur les éléments réels ;
-// - les éléments ajoutés (message d'erreur, bouton de déconnexion) sont stylés
-//   pour rester fidèles à la charte (DM Sans, accent or #C9A96E).
-
-// ====================== DÉBOGAGE (à retirer ensuite) ======================
-console.log("auth.js chargé");
-document.addEventListener('DOMContentLoaded', function() {
-  console.log("DOM prêt");
-  const googleBtn = document.querySelector('button:has(path[fill="#4285F4"])');
-  console.log("Bouton Google trouvé :", googleBtn);
-  if (googleBtn) {
-    googleBtn.addEventListener('click', function() {
-      console.log("Clic Google détecté");
-      const provider = new firebase.auth.GoogleAuthProvider();
-      firebase.auth().signInWithPopup(provider)
-        .then(result => {
-          window.location.href = 'Dashboard.dc.html';
-        })
-        .catch(error => {
-          console.error("Erreur Google Auth:", error);
-        });
-    });
-  }
-});
-// ==========================================================================
+// Authentification Firebase (email / mot de passe + Google) pour Pet Feeder.
+// Le design est rendu par React (support.js) APRÈS DOMContentLoaded : on ne peut
+// donc pas brancher les listeners au chargement. On utilise un MutationObserver
+// (waitForElement) pour attendre que chaque bouton soit réellement présent dans
+// le DOM avant d'y attacher son gestionnaire. Le design n'est pas modifié.
 
 (function () {
   "use strict";
@@ -40,34 +17,42 @@ document.addEventListener('DOMContentLoaded', function() {
   // --- Détection de la page courante --------------------------------------
   var path = decodeURIComponent(location.pathname);
   var isLoginPage = /Login\.dc\.html$/i.test(path);
-  // Toute page nécessitant une session : dashboards + historique.
   var isProtectedPage = /(Dashboard|Historique)[^/]*\.dc\.html$/i.test(path);
 
   var LOGIN_URL = "Login.dc.html";
   var DASHBOARD_URL = "Dashboard.dc.html";
 
-  // --- Petit utilitaire : attendre qu'un élément apparaisse dans le DOM ----
-  function waitFor(test, cb, timeoutMs) {
-    var found = test();
-    if (found) { cb(found); return; }
-    var obs = new MutationObserver(function () {
-      var el = test();
-      if (el) { obs.disconnect(); cb(el); }
-    });
-    obs.observe(document.documentElement, { childList: true, subtree: true });
-    if (timeoutMs) {
-      setTimeout(function () { obs.disconnect(); }, timeoutMs);
+  // --- Attend qu'un élément existe avant d'exécuter le callback -----------
+  // `selector` peut être un sélecteur CSS OU une fonction-prédicat renvoyant
+  // l'élément (utile pour le bouton « Se connecter » qui n'a ni id ni classe
+  // et ne peut pas être ciblé par texte en CSS).
+  function waitForElement(selector, callback) {
+    function find() {
+      try {
+        return typeof selector === "function" ? selector() : document.querySelector(selector);
+      } catch (e) {
+        return null; // sélecteur non supporté par le navigateur
+      }
     }
+    var el = find();
+    if (el) { callback(el); return; }
+    var observer = new MutationObserver(function () {
+      var found = find();
+      if (found) { observer.disconnect(); callback(found); }
+    });
+    // auth.js est chargé dans <head> : document.body peut être null ici.
+    observer.observe(document.body || document.documentElement, {
+      childList: true,
+      subtree: true
+    });
   }
 
   // --- Garde d'authentification (routing automatique) ---------------------
   auth.onAuthStateChanged(function (user) {
     if (isLoginPage && user) {
-      // Déjà connecté → on file vers le dashboard.
-      location.replace(DASHBOARD_URL);
+      location.replace(DASHBOARD_URL);        // déjà connecté → dashboard
     } else if (isProtectedPage && !user) {
-      // Session absente → retour au login.
-      location.replace(LOGIN_URL);
+      location.replace(LOGIN_URL);            // session absente → login
     }
   });
 
@@ -75,33 +60,29 @@ document.addEventListener('DOMContentLoaded', function() {
   //  PAGE DE LOGIN
   // ========================================================================
   if (isLoginPage) {
-    waitFor(function () {
-      return document.querySelector('input[type="email"]');
-    }, setupLogin);
+    // Bouton « Se connecter » : repéré par son texte (pas de sélecteur CSS).
+    waitForElement(findLoginButton, setupLogin);
   }
 
-  function setupLogin() {
-    var emailInput = document.querySelector('input[type="email"]');
-    var passwordInput = document.querySelector('input[type="password"]');
-
-    // Repérer le bouton « Se connecter » par son texte.
-    var loginBtn = null;
+  function findLoginButton() {
     var buttons = document.querySelectorAll("button");
     for (var i = 0; i < buttons.length; i++) {
-      if (/se connecter/i.test(buttons[i].textContent || "")) {
-        loginBtn = buttons[i];
-        break;
-      }
+      if (/se connecter/i.test(buttons[i].textContent || "")) return buttons[i];
     }
-    if (!emailInput || !passwordInput || !loginBtn) {
-      console.error("[auth] Champs de login introuvables.");
+    return null;
+  }
+
+  function setupLogin(loginBtn) {
+    var emailInput = document.querySelector('input[type="email"]');
+    var passwordInput = document.querySelector('input[type="password"]');
+    if (!emailInput || !passwordInput) {
+      console.error("[auth] Champs e-mail/mot de passe introuvables.");
       return;
     }
 
     var defaultBtnText = loginBtn.textContent.trim();
 
-    // Élément de message d'erreur, inséré au-dessus du bouton, dans le style
-    // existant (rouge doux déjà utilisé ailleurs : #EF6B6B).
+    // Message d'erreur inséré au-dessus du bouton, dans la charte (#EF6B6B).
     var errorEl = document.createElement("div");
     errorEl.setAttribute("role", "alert");
     errorEl.style.cssText =
@@ -112,62 +93,42 @@ document.addEventListener('DOMContentLoaded', function() {
       "transition:opacity 0.25s ease";
     loginBtn.parentNode.insertBefore(errorEl, loginBtn);
 
-    function showError(msg) {
-      errorEl.textContent = msg;
-      errorEl.style.display = "block";
-    }
-    function clearError() {
-      errorEl.style.display = "none";
-    }
+    function showError(msg) { errorEl.textContent = msg; errorEl.style.display = "block"; }
+    function clearError() { errorEl.style.display = "none"; }
 
     function mapError(code) {
       switch (code) {
-        case "auth/invalid-email":
-          return "Adresse e-mail invalide.";
-        case "auth/user-disabled":
-          return "Ce compte a été désactivé.";
-        case "auth/user-not-found":
-          return "Aucun compte associé à cet e-mail.";
+        case "auth/invalid-email": return "Adresse e-mail invalide.";
+        case "auth/user-disabled": return "Ce compte a été désactivé.";
+        case "auth/user-not-found": return "Aucun compte associé à cet e-mail.";
         case "auth/wrong-password":
         case "auth/invalid-credential":
-        case "auth/invalid-login-credentials":
-          return "E-mail ou mot de passe incorrect.";
-        case "auth/too-many-requests":
-          return "Trop de tentatives. Réessayez dans quelques instants.";
-        case "auth/network-request-failed":
-          return "Problème de connexion réseau. Vérifiez votre connexion.";
-        case "auth/popup-blocked":
-          return "Veuillez autoriser les pop-ups pour vous connecter.";
+        case "auth/invalid-login-credentials": return "E-mail ou mot de passe incorrect.";
+        case "auth/too-many-requests": return "Trop de tentatives. Réessayez dans quelques instants.";
+        case "auth/network-request-failed": return "Problème de connexion réseau. Vérifiez votre connexion.";
+        case "auth/popup-blocked": return "Veuillez autoriser les pop-ups pour vous connecter.";
         case "auth/account-exists-with-different-credential":
           return "Un compte existe déjà avec cette adresse via une autre méthode.";
-        case "auth/unauthorized-domain":
-          return "Ce domaine n'est pas autorisé dans la console Firebase.";
-        case "auth/operation-not-allowed":
-          return "Cette méthode de connexion n'est pas activée dans Firebase.";
-        default:
-          return "Connexion impossible. Réessayez.";
+        case "auth/unauthorized-domain": return "Ce domaine n'est pas autorisé dans la console Firebase.";
+        case "auth/operation-not-allowed": return "Cette méthode de connexion n'est pas activée dans Firebase.";
+        default: return "Connexion impossible. Réessayez.";
       }
     }
 
+    // --- Connexion e-mail / mot de passe --------------------------------
     function submit() {
       var email = (emailInput.value || "").trim();
       var password = passwordInput.value || "";
-
       if (!email || !password) {
         showError("Veuillez renseigner votre e-mail et votre mot de passe.");
         return;
       }
-
       clearError();
       loginBtn.disabled = true;
       loginBtn.textContent = "Connexion…";
-
       auth
         .signInWithEmailAndPassword(email, password)
-        .then(function () {
-          // Succès : onAuthStateChanged redirige vers le dashboard.
-          location.replace(DASHBOARD_URL);
-        })
+        .then(function () { location.replace(DASHBOARD_URL); })
         .catch(function (err) {
           showError(mapError(err && err.code));
           loginBtn.disabled = false;
@@ -175,39 +136,24 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    loginBtn.addEventListener("click", function (e) {
-      e.preventDefault();
-      submit();
-    });
+    loginBtn.addEventListener("click", function (e) { e.preventDefault(); submit(); });
 
-    // Soumission via la touche Entrée dans les champs.
-    function onEnter(e) {
-      if (e.key === "Enter") { e.preventDefault(); submit(); }
-    }
+    function onEnter(e) { if (e.key === "Enter") { e.preventDefault(); submit(); } }
     emailInput.addEventListener("keydown", onEnter);
     passwordInput.addEventListener("keydown", onEnter);
-
-    // Effacer l'erreur dès que l'utilisateur recommence à taper.
     emailInput.addEventListener("input", clearError);
     passwordInput.addEventListener("input", clearError);
 
-    // --- Connexion via fournisseurs (Google / Apple) --------------------
-    // Les boutons sociaux n'ont ni id ni classe dans le design : on les
-    // repère par leur logo SVG, sans modifier le HTML.
-    var social = findSocialButtons();
-
-    if (social.google) {
-      social.google.addEventListener("click", function (e) {
+    // --- Connexion Google (bouton ciblé par son logo SVG) ---------------
+    waitForElement('button:has(path[fill="#4285F4"])', function (googleBtn) {
+      googleBtn.addEventListener("click", function (e) {
         e.preventDefault();
-        if (social.google.disabled) return;
+        if (googleBtn.disabled) return;
         clearError();
-        social.google.disabled = true;
+        googleBtn.disabled = true;
         auth
           .signInWithPopup(new firebase.auth.GoogleAuthProvider())
-          .then(function () {
-            // Succès : onAuthStateChanged redirige aussi, mais on accélère.
-            location.replace(DASHBOARD_URL);
-          })
+          .then(function () { location.replace(DASHBOARD_URL); })
           .catch(function (err) {
             var code = err && err.code;
             // Pop-up fermée/annulée par l'utilisateur : pas d'erreur affichée.
@@ -215,42 +161,27 @@ document.addEventListener('DOMContentLoaded', function() {
                 code !== "auth/cancelled-popup-request") {
               showError(mapError(code));
             }
-            social.google.disabled = false;
+            googleBtn.disabled = false;
           });
       });
-    }
+    });
 
-    if (social.apple) {
-      // Apple Sign-In nécessite une configuration serveur complexe : non
-      // disponible ici, on informe l'utilisateur au clic.
-      social.apple.addEventListener("click", function (e) {
+    // --- Bouton Apple : non disponible (Sign-In Apple = config serveur) -
+    waitForElement('button:has(path[d^="M18.71 19.5"])', function (appleBtn) {
+      appleBtn.addEventListener("click", function (e) {
         e.preventDefault();
         showError("Connexion Apple non disponible pour le moment.");
       });
-    }
-  }
-
-  // Repère les boutons sociaux par le contenu de leur SVG (pas d'id/classe).
-  function findSocialButtons() {
-    var res = { google: null, apple: null };
-    var buttons = document.querySelectorAll("button");
-    for (var i = 0; i < buttons.length; i++) {
-      var html = buttons[i].innerHTML || "";
-      if (!res.google && /4285F4/i.test(html)) res.google = buttons[i];
-      else if (!res.apple && html.indexOf("M18.71 19.5") !== -1) res.apple = buttons[i];
-    }
-    return res;
+    });
   }
 
   // ========================================================================
   //  PAGES PROTÉGÉES — bouton de déconnexion
   // ========================================================================
   if (isProtectedPage) {
-    // Le bouton est ajouté à <body>, donc HORS du conteneur React (#dc-root) :
-    // il survit aux re-rendus du dashboard et ne perturbe pas le design.
-    waitFor(function () {
-      return document.body ? document.body : null;
-    }, addLogoutButton);
+    // On attend que <body> existe, puis on injecte le bouton HORS de #dc-root
+    // (il survit aux re-rendus React et ne perturbe pas le design).
+    waitForElement(function () { return document.body; }, addLogoutButton);
   }
 
   function addLogoutButton() {
