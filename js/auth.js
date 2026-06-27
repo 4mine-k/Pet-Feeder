@@ -5,6 +5,28 @@
 // - les éléments ajoutés (message d'erreur, bouton de déconnexion) sont stylés
 //   pour rester fidèles à la charte (DM Sans, accent or #C9A96E).
 
+// ====================== DÉBOGAGE (à retirer ensuite) ======================
+console.log("auth.js chargé");
+document.addEventListener('DOMContentLoaded', function() {
+  console.log("DOM prêt");
+  const googleBtn = document.querySelector('button:has(path[fill="#4285F4"])');
+  console.log("Bouton Google trouvé :", googleBtn);
+  if (googleBtn) {
+    googleBtn.addEventListener('click', function() {
+      console.log("Clic Google détecté");
+      const provider = new firebase.auth.GoogleAuthProvider();
+      firebase.auth().signInWithPopup(provider)
+        .then(result => {
+          window.location.href = 'Dashboard.dc.html';
+        })
+        .catch(error => {
+          console.error("Erreur Google Auth:", error);
+        });
+    });
+  }
+});
+// ==========================================================================
+
 (function () {
   "use strict";
 
