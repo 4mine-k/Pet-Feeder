@@ -6,6 +6,7 @@
 
 (function () {
   "use strict";
+  console.log("[auth] script démarré, body:", document.body, "html:", document.documentElement);
 
   if (typeof firebase === "undefined" || !firebase.auth) {
     console.error("[auth] Firebase n'est pas chargé — vérifiez l'ordre des scripts.");
@@ -41,7 +42,7 @@
       if (found) { observer.disconnect(); callback(found); }
     });
     // auth.js est chargé dans <head> : document.body peut être null ici.
-    observer.observe(document.body || document.documentElement, {
+    observer.observe(document.documentElement, {
       childList: true,
       subtree: true
     });
