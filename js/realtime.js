@@ -100,8 +100,18 @@
     attachListeners();
     // Rafraîchit le temps relatif chaque minute (même sans nouvel événement).
     setInterval(updateRelative, 60 * 1000);
+    // Écrit l'heure du navigateur dans /currentTime : immédiat puis toutes les 60 s.
+    pushCurrentTime();
+    setInterval(pushCurrentTime, 60 * 1000);
   }
   init();
+
+  // Écriture de l'heure courante (minutes depuis minuit) dans /currentTime.
+  function pushCurrentTime() {
+    db.ref("/currentTime").set(nowMinutesLocal()).catch(function (e) {
+      console.warn("[realtime] écriture /currentTime échouée :", e);
+    });
+  }
 
   function findStatusLabel() {
     return findLeaf(function (t) {
@@ -175,9 +185,9 @@
       text.textContent = detected ? (originals.presence || "À proximité du distributeur")
                                    : "Hors de portée";
     }
-    // Badge "DÉTECTÉ" (présent sur mobile).
-    var badge = findLeaf(function (t) { return t === "DÉTECTÉ" || t === "ABSENT"; });
-    if (badge) badge.textContent = detected ? "DÉTECTÉ" : "ABSENT";
+    // Badge de présence (le design affiche "DÉTECTÉ" au départ).
+    var badge = findLeaf(function (t) { return t === "DÉTECTÉ" || t === "PRÉSENT" || t === "ABSENT"; });
+    if (badge) badge.textContent = detected ? "PRÉSENT" : "ABSENT";
 
     // Pastille de présence verte, dans la carte du compagnon (autour de "Milo").
     var milo = findLeafText("Milo");
