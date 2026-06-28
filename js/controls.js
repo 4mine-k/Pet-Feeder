@@ -185,6 +185,7 @@
   //  Bouton "Nourrir maintenant" → /feedNow = 1 (+ confirmation + anti-spam)
   // ======================================================================
   function setupFeed() {
+    if (!isDashboard) return; // bloc spécifique au dashboard
     var btn = null;
     var buttons = root().querySelectorAll("button");
     for (var i = 0; i < buttons.length; i++) {
@@ -396,6 +397,7 @@
   }
 
   function setupSchedule() {
+    if (!isDashboard) return; // bloc spécifique au dashboard
     var found = findScheduleSection();
     if (!found) return;
     scheduleListEl = found.list;
@@ -444,6 +446,7 @@
   }
 
   function setupNav() {
+    if (!isDashboard) return; // bloc spécifique au dashboard
     // Maison → on reste sur le dashboard (retour en haut de page).
     bindClick(navItem("M3 9l9-7 9 7"), function () {
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -567,6 +570,7 @@
   //  nativement (onClick liés à la logique DCLogic du design) — on n'y touche pas.
   // ======================================================================
   function setupHistorique() {
+    if (!isHistorique) return; // bloc spécifique à la page Historique
     var byId = document.getElementById.bind(document);
 
     // Retour (chevron gauche) → dashboard.
