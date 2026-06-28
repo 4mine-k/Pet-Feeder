@@ -567,32 +567,32 @@
   //  nativement (onClick liés à la logique DCLogic du design) — on n'y touche pas.
   // ======================================================================
   function setupHistorique() {
+    var byId = document.getElementById.bind(document);
+
     // Retour (chevron gauche) → dashboard.
-    bindClick(navItem("M15 18l-6-6"), function () {
+    bindClick(byId("btn-retour"), function () {
       window.location.href = "Dashboard.dc.html";
     });
 
-    // Deux icônes calendrier partagent le même path :
-    //   [0] = en-tête (filtre par date), [1] = navigation du bas (horaires).
-    var calendars = navItemAll("M16 2v4");
-    bindClick(calendars[0], function () {
+    // Calendrier en-tête → filtre par date (à venir).
+    bindClick(byId("btn-calendrier-header"), function () {
       alert("Filtrer par date — fonctionnalité à venir");
     });
 
     // Navigation du bas.
-    bindClick(navItem("M3 9l9-7 9 7"), function () {       // maison → dashboard
+    bindClick(byId("nav-home"), function () {        // maison → dashboard
       window.location.href = "Dashboard.dc.html";
     });
-    bindClick(navItem("M18 20V10"), function () {           // graphique → historique
+    bindClick(byId("nav-stats"), function () {       // graphique → historique
       window.location.href = "Historique.dc.html";
     });
-    bindClick(calendars[1], function () {                   // calendrier → horaires
+    bindClick(byId("nav-schedule"), function () {    // calendrier → horaires
       var found = findScheduleSection();
       if (found && found.section && found.section.scrollIntoView) {
         found.section.scrollIntoView({ behavior: "smooth", block: "center" });
       }
     });
-    bindClick(navItem("M19.4 15a1.65"), function () {       // engrenage → paramètres
+    bindClick(byId("nav-settings"), function () {    // engrenage → paramètres
       alert("Paramètres à venir");
     });
   }
@@ -616,8 +616,8 @@
       setupSchedule();
       setupNav();
     } else if (isHistorique) {
-      // On attend que le bouton retour (chevron) soit rendu.
-      if (!root().querySelector('path[d^="M15 18l-6-6"]')) { setTimeout(init, 200); return; }
+      // On attend que le bouton retour (id stable) soit rendu.
+      if (!document.getElementById("btn-retour")) { setTimeout(init, 200); return; }
       setupHistorique();
     }
   }
