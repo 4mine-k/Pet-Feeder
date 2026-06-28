@@ -12,8 +12,11 @@
 
   if (typeof firebase === "undefined" || !firebase.database) return;
 
-  var base = decodeURIComponent(location.pathname).split("/").pop();
-  if (base !== "Dashboard.dc.html" && base !== "Dashboard Desktop.dc.html") return;
+  // Vérification de page : la couche feedback (toasts + log d'activité) ne
+  // concerne que les dashboards.
+  var isDashboard = /Dashboard( Desktop)?\.dc\.html$/i.test(decodeURIComponent(location.pathname));
+  var isHistorique = /Historique\.dc\.html$/i.test(location.pathname);
+  if (!isDashboard) return;
 
   var db = firebase.database();
 
