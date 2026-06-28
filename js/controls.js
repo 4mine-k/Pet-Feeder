@@ -409,6 +409,145 @@
   }
 
   // ======================================================================
+  //  Navigation & en-tête — icônes du design branchées à des actions.
+  //  Les icônes sont des <div> sans id/classe : on les repère par leur
+  //  path SVG, puis on remonte au conteneur cliquable (.closest('div')).
+  // ======================================================================
+  function navItem(dPrefix) {
+    var p = root().querySelector('path[d^="' + dPrefix + '"]');
+    return p ? p.closest("div") : null;
+  }
+
+  function bindClick(el, handler) {
+    if (!el || el.__pfNavBound) return;
+    el.__pfNavBound = true;
+    el.style.cursor = "pointer";
+    el.addEventListener("click", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      handler();
+    });
+  }
+
+  function setupNav() {
+    // Maison → on reste sur le dashboard (retour en haut de page).
+    bindClick(navItem("M3 9l9-7 9 7"), function () {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+    // Graphique (stats) → historique.
+    bindClick(navItem("M18 20V10"), function () {
+      window.location.href = "Historique.dc.html";
+    });
+    // Calendrier → affiche la section de programmation des horaires.
+    bindClick(navItem("M16 2v4"), function () {
+      var found = findScheduleSection();
+      if (found && found.section && found.section.scrollIntoView) {
+        found.section.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    });
+    // Engrenage → paramètres (à venir).
+    bindClick(navItem("M19.4 15a1.65"), function () {
+      alert("Paramètres à venir");
+    });
+    // Cloche → panneau de notifications.
+    bindClick(navItem("M18 8A6 6 0 0 0 6 8"), toggleNotifPanel);
+    // Profil → menu avec Déconnexion.
+    bindClick(navItem("M4 21v-1a6 6 0 0 1 12 0v1"), toggleProfileMenu);
+
+    // Fermeture des panneaux au clic en dehors.
+    document.addEventListener("click", function (e) {
+      var notif = document.getElementById("pf-notif-panel");
+      var menu = document.getElementById("pf-profile-menu");
+      if (notif && !notif.contains(e.target)) closeNotifPanel();
+      if (menu && !menu.contains(e.target)) closeProfileMenu();
+    });
+  }
+
+  // --- Panneau de notifications ----------------------------------------
+  function closeNotifPanel() {
+    var p = document.getElementById("pf-notif-panel");
+    if (p && p.parentNode) p.parentNode.removeChild(p);
+  }
+  function toggleNotifPanel() {
+    closeProfileMenu();
+    if (document.getElementById("pf-notif-panel")) { closeNotifPanel(); return; }
+
+    var panel = document.createElement("div");
+    panel.id = "pf-notif-panel";
+    panel.style.cssText =
+      "position:fixed;top:66px;right:16px;z-index:2147483400;width:280px;" +
+      "max-width:calc(100vw - 32px);box-sizing:border-box;padding:18px 18px 14px;" +
+      "font-family:'DM Sans',sans-serif;" +
+      "background:linear-gradient(175deg,rgba(42,42,62,0.98),rgba(30,30,46,0.98));" +
+      "border:1px solid rgba(255,255,255,0.08);border-radius:16px;" +
+      "box-shadow:0 18px 50px rgba(0,0,0,0.5);" +
+      "backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)";
+    panel.innerHTML =
+      '<div style="font-family:\'Playfair Display\',serif;font-size:16px;font-weight:600;' +
+      'color:#F2EDE7;margin-bottom:12px">Notifications</div>' +
+      '<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;' +
+      'background:rgba(91,204,126,0.06);border:1px solid rgba(91,204,126,0.12);' +
+      'border-radius:12px"><span style="width:7px;height:7px;border-radius:50%;' +
+      'background:#5BCC7E;flex-shrink:0"></span>' +
+      '<span style="font-size:12.5px;color:rgba(242,237,231,0.6)">' +
+      'Tout est à jour. Aucune alerte en cours.</span></div>';
+    document.body.appendChild(panel);
+  }
+
+  // --- Menu profil (déconnexion) ---------------------------------------
+  function closeProfileMenu() {
+    var m = document.getElementById("pf-profile-menu");
+    if (m && m.parentNode) m.parentNode.removeChild(m);
+  }
+  function toggleProfileMenu() {
+    closeNotifPanel();
+    if (document.getElementById("pf-profile-menu")) { closeProfileMenu(); return; }
+
+    var menu = document.createElement("div");
+    menu.id = "pf-profile-menu";
+    menu.style.cssText =
+      "position:fixed;top:66px;right:16px;z-index:2147483400;width:200px;" +
+      "max-width:calc(100vw - 32px);box-sizing:border-box;padding:8px;" +
+      "font-family:'DM Sans',sans-serif;" +
+      "background:linear-gradient(175deg,rgba(42,42,62,0.98),rgba(30,30,46,0.98));" +
+      "border:1px solid rgba(255,255,255,0.08);border-radius:14px;" +
+      "box-shadow:0 18px 50px rgba(0,0,0,0.5);" +
+      "backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)";
+
+    var logout = document.createElement("button");
+    logout.type = "button";
+    logout.style.cssText =
+      "width:100%;box-sizing:border-box;display:flex;align-items:center;gap:10px;" +
+      "padding:11px 12px;background:transparent;border:none;border-radius:10px;" +
+      "cursor:pointer;font-family:'DM Sans',sans-serif;font-size:13.5px;font-weight:500;" +
+      "color:rgba(242,237,231,0.8);text-align:left;transition:background 0.2s ease";
+    logout.innerHTML =
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#EF6B6B" ' +
+      'stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>' +
+      '<polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>' +
+      "<span>Déconnexion</span>";
+    logout.addEventListener("mouseenter", function () {
+      logout.style.background = "rgba(239,107,107,0.1)";
+    });
+    logout.addEventListener("mouseleave", function () {
+      logout.style.background = "transparent";
+    });
+    logout.addEventListener("click", function () {
+      logout.disabled = true;
+      firebase.auth().signOut().then(function () {
+        window.location.href = "Login.dc.html";
+      }).catch(function (e) {
+        console.error("[controls] Échec de la déconnexion :", e);
+        logout.disabled = false;
+      });
+    });
+
+    menu.appendChild(logout);
+    document.body.appendChild(menu);
+  }
+
+  // ======================================================================
   //  Démarrage après rendu du design — polling jusqu'à présence des éléments
   //  (le web component <x-dc> est rendu par React après le chargement).
   // ======================================================================
@@ -424,6 +563,7 @@
     if (!feedBtn) { setTimeout(init, 200); return; }
     setupFeed();
     setupSchedule();
+    setupNav();
   }
   init();
 })();
