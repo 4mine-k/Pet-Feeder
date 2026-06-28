@@ -23,7 +23,7 @@
   // ----------------------------------------------------------------------
   //  Helpers
   // ----------------------------------------------------------------------
-  function root() { return document.getElementById("dc-root") || document.body; }
+  function root() { return document.getElementById("dc-root") || document.body || document.documentElement; }
   function pad2(n) { return (n < 10 ? "0" : "") + n; }
   function nowHHMM() {
     var d = new Date();
@@ -208,14 +208,15 @@
   }
 
   // Tente de localiser la section "Activité récente" (présente sur desktop).
-  (function locateActivity() {
+  // Polling jusqu'à ce que le design soit rendu, puis abandon après ~10 s
+  // (la section n'existe pas sur mobile).
+  (function locateActivity(attempts) {
+    attempts = attempts || 0;
     var found = findActivityContainer();
     if (found) { activityListEl = found; renderLog(); return; }
-    var obs = new MutationObserver(function () {
-      var el = findActivityContainer();
-      if (el) { obs.disconnect(); activityListEl = el; renderLog(); }
-    });
-    obs.observe(document.documentElement, { childList: true, subtree: true });
+    if (attempts < 50) {
+      setTimeout(function () { locateActivity(attempts + 1); }, 200);
+    }
   })();
 
   // ----------------------------------------------------------------------
