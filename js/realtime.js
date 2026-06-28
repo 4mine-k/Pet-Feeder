@@ -149,26 +149,37 @@
   }
 
   // ----------------------------------------------------------------------
-  //  Pilotage de la jauge via le runtime (réactif, état d'alerte inclus)
+  //  Pilotage des composants du design via le runtime (props accumulées).
+  //  __dcSetProps REMPLACE propOverrides à chaque appel → on accumule TOUT
+  //  dans currentProps et on repasse l'objet complet. On attend (polling)
+  //  que window.__dcSetProps / __dcRootName soient disponibles.
   // ----------------------------------------------------------------------
-  var pendingLevel = null;
-  function applyGauge(level) {
-    pendingLevel = level;
-    flushGauge();
+  var currentProps = {};
+  var loggedPush = false;
+
+  function setProp(key, value) {
+    currentProps[key] = value;
+    pushProps();
   }
-  function flushGauge() {
-    if (pendingLevel == null) return;
-    if (window.__dcSetProps && window.__dcRootName) {
-      var name = window.__dcRootName();
-      if (name) {
-        // foodLevel borné 0-100 ; le composant déclenche seul l'état "Critique".
-        var lvl = Math.max(0, Math.min(100, Math.round(pendingLevel)));
-        window.__dcSetProps(name, { foodLevel: lvl });
-        pendingLevel = null;
-        return;
-      }
+  function pushProps() {
+    if (typeof window.__dcSetProps !== "function" ||
+        typeof window.__dcRootName !== "function") {
+      setTimeout(pushProps, 150); // runtime pas encore prêt
+      return;
     }
-    setTimeout(flushGauge, 120); // le runtime n'a pas encore booté
+    var name = window.__dcRootName();
+    if (!name) { setTimeout(pushProps, 150); return; } // root pas encore monté
+    if (!loggedPush) {
+      loggedPush = true;
+      console.log("[realtime] __dcSetProps →", name, currentProps);
+    }
+    window.__dcSetProps(name, currentProps); // objet complet (accumulé)
+  }
+
+  // foodLevel : le composant recalcule %, arc, barre, couleurs et déclenche
+  // seul l'état "Critique" rouge quand le niveau est bas.
+  function applyGauge(level) {
+    setProp("foodLevel", Math.max(0, Math.min(100, Math.round(level))));
   }
 
   // ----------------------------------------------------------------------
