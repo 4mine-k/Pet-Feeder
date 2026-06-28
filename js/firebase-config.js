@@ -1,13 +1,13 @@
 // Firebase configuration — remplacez les placeholders par les valeurs
 // de votre projet (Console Firebase > Paramètres du projet > Vos applications).
-const firebaseConfig = {
-   apiKey: "AIzaSyCHvJBTqRLMG-JtDZkMWBM5iISRuF7BMHs",
-  authDomain: "Pet-Feeder.firebaseapp.com",
-  databaseURL: "https://pet-feed3r-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "pet-feed3r",
-  storageBucket: "pet-feed3r.firebasestorage.app",
-  messagingSenderId: "870057909648",
-  appId: "1:870057909648:web:0ae95bc85cbf3449f96715",
+var firebaseConfig = {
+  apiKey: "AIzaSyD7R9KlqbLPw6cFwVJmdeDdQiRc9JZN9gU",
+  authDomain: "pet-feeder-e8541.firebaseapp.com",
+  databaseURL: "METS_ICI_TON_DATABASE_URL",
+  projectId: "pet-feeder-e8541",
+  storageBucket: "pet-feeder-e8541.firebasestorage.app",
+  messagingSenderId: "297618316482",
+  appId: "1:297618316482:web:32e700e0004c9864d5ef5b"
 };
 
 // Initialisation de Firebase (SDK v8 compat).
