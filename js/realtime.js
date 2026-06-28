@@ -17,8 +17,10 @@
 (function () {
   "use strict";
 
-  if (typeof firebase === "undefined" || !firebase.database) {
-    console.error("[realtime] Firebase Database n'est pas chargé.");
+  try {
+    firebase.database();
+  } catch (e) {
+    setTimeout(init, 200);
     return;
   }
 
@@ -97,6 +99,20 @@
       return;
     }
     captureOriginals();
+
+    // --- DEBUG : confirmation que chaque élément est bien trouvé ----------
+    // (pas de document.querySelector simple possible : ni id ni classe, et CSS
+    //  ne cible pas par texte — on utilise les mêmes finders que les listeners.)
+    console.log("foodLevel el (% affiché):", findLeaf(function (t) { return /^\d+%$/.test(t); }));
+    console.log("petDetected el (badge):", findLeaf(function (t) {
+      return t === "DÉTECTÉ" || t === "PRÉSENT" || t === "ABSENT";
+    }));
+    console.log("petDetected el (texte):", findPresenceText());
+    console.log("lastFeed el (heure):", timeLeafIn(cardFromLabel("Dernier repas")));
+    console.log("nextMeal el (heure):", timeLeafIn(cardFromLabel("Prochain repas")));
+    console.log("connexion el (badge):", findStatusLabel());
+    // ---------------------------------------------------------------------
+
     attachListeners();
     // Rafraîchit le temps relatif chaque minute (même sans nouvel événement).
     setInterval(updateRelative, 60 * 1000);
