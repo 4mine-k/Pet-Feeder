@@ -1,23 +1,26 @@
-// Firebase configuration — remplacez les placeholders par les valeurs
-// de votre projet (Console Firebase > Paramètres du projet > Vos applications).
-var firebaseConfig = {
-   apiKey: "AIzaSyCHvJBTqRLMG-JtDZkMWBM5iISRuF7BMHs",
-  authDomain: "pet-feed3r.firebaseapp.com",
-  databaseURL: "https://pet-feed3r-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "pet-feed3r",
-  storageBucket: "pet-feed3r.firebasestorage.app",
-  messagingSenderId: "870057909648",
-  appId: "1:870057909648:web:0ae95bc85cbf3449f96715",
-};
+// Configuration Firebase — initialisation robuste.
+// Remarque : support.js (le runtime du design) ne charge PAS Firebase ; ce sont
+// les scripts CDN firebase-*.js (chargés juste avant ce fichier) qui fournissent
+// `window.firebase`. On attend qu'il soit disponible, puis on initialise l'app
+// UNE seule fois (le try/catch évite « Firebase App already exists »).
 
-// Initialisation de Firebase (SDK v8 compat).
-// Garde anti double-init : si firebase-config.js est évalué deux fois,
-// on ne réinitialise pas l'app (sinon « Firebase App already exists »).
-if (!firebase.apps.length) {
-  firebase.initializeApp(firebaseConfig);
+function initFirebase() {
+  if (typeof firebase === 'undefined') {
+    setTimeout(initFirebase, 100);
+    return;
+  }
+  try {
+    firebase.app(); // vérifie si déjà initialisé
+  } catch (e) {
+    firebase.initializeApp({
+      apiKey: "AIzaSyD7R9KlqbLPw6cFwVJmdeDdQiRc9JZN9gU",
+      authDomain: "pet-feeder-e8541.firebaseapp.com",
+      databaseURL: "https://pet-feeder-e8541-default-rtdb.europe-west1.firebasedatabase.app/",
+      projectId: "pet-feeder-e8541",
+      storageBucket: "pet-feeder-e8541.firebasestorage.app",
+      messagingSenderId: "297618316482",
+      appId: "1:297618316482:web:32e700e0004c9864d5ef5b"
+    });
+  }
 }
-
-// Services exposés globalement (var et non const pour tolérer une éventuelle
-// double évaluation du script sans SyntaxError « already declared »).
-var auth = firebase.auth();
-var db = firebase.database();
+initFirebase();
