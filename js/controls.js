@@ -44,7 +44,7 @@
   // ======================================================================
   //  Helpers DOM
   // ======================================================================
-  function root() { return document.getElementById("dc-root") || document.body; }
+  function root() { return document.getElementById("dc-root") || document.body || document.documentElement; }
   function findInScope(scope, pred) {
     if (!scope) return null;
     var els = scope.querySelectorAll("*");
@@ -70,16 +70,6 @@
     return m ? pad2(parseInt(m[1], 10)) + ":" + m[2] : null;
   }
   function byTime(a, b) { return parseHM(a) - parseHM(b); }
-
-  function waitFor(test, cb) {
-    var found = test();
-    if (found) { cb(found); return; }
-    var obs = new MutationObserver(function () {
-      var el = test();
-      if (el) { obs.disconnect(); cb(el); }
-    });
-    obs.observe(document.documentElement, { childList: true, subtree: true });
-  }
 
   // ======================================================================
   //  Modale réutilisable (confirmation + saisie), hors du root React
@@ -419,16 +409,21 @@
   }
 
   // ======================================================================
-  //  Démarrage après rendu du design
+  //  Démarrage après rendu du design — polling jusqu'à présence des éléments
+  //  (le web component <x-dc> est rendu par React après le chargement).
   // ======================================================================
-  waitFor(function () {
-    var b = root().querySelectorAll("button");
-    for (var i = 0; i < b.length; i++) {
-      if (/nourrir maintenant/i.test(b[i].textContent || "")) return b[i];
+  function init() {
+    var dc = document.getElementById("dc-root");
+    var feedBtn = null;
+    if (dc) {
+      var b = dc.querySelectorAll("button");
+      for (var i = 0; i < b.length; i++) {
+        if (/nourrir maintenant/i.test(b[i].textContent || "")) { feedBtn = b[i]; break; }
+      }
     }
-    return null;
-  }, function () {
+    if (!feedBtn) { setTimeout(init, 200); return; }
     setupFeed();
     setupSchedule();
-  });
+  }
+  init();
 })();
