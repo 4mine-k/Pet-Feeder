@@ -2,7 +2,7 @@
 // de votre projet (Console Firebase > Paramètres du projet > Vos applications).
 const firebaseConfig = {
    apiKey: "AIzaSyCHvJBTqRLMG-JtDZkMWBM5iISRuF7BMHs",
-  authDomain: "pet-feed3r.firebaseapp.com",
+  authDomain: "Pet-Feeder.firebaseapp.com",
   databaseURL: "https://pet-feed3r-default-rtdb.europe-west1.firebasedatabase.app",
   projectId: "pet-feed3r",
   storageBucket: "pet-feed3r.firebasestorage.app",
