@@ -17,20 +17,13 @@
 (function () {
   "use strict";
 
-  try {
-    firebase.database();
-  } catch (e) {
-    setTimeout(init, 200);
-    return;
-  }
-
-  // Cibler seulement les pages live (pas la planche "States", ni Historique).
+  // Cibler seulement les pages live (indépendant de Firebase, évalué tout de suite).
   var base = decodeURIComponent(location.pathname).split("/").pop();
   if (base !== "Dashboard.dc.html" && base !== "Dashboard Desktop.dc.html") {
     return;
   }
 
-  var db = firebase.database();
+  var db; // assigné dans init() une fois Firebase Database disponible
 
   // ----------------------------------------------------------------------
   //  Helpers DOM
@@ -94,6 +87,12 @@
   // On attend (polling) que le design soit rendu — #dc-root + badge de statut —
   // avant de brancher les listeners temps réel. Même pattern qu'auth.js.
   function init() {
+    // 1) Attendre que Firebase Database soit disponible (app initialisée).
+    try { firebase.database(); }
+    catch (e) { setTimeout(init, 200); return; }
+    if (!db) db = firebase.database();
+
+    // 2) Attendre que le design soit rendu (#dc-root + badge de statut).
     if (!document.getElementById("dc-root") || !findStatusLabel()) {
       setTimeout(init, 200);
       return;
