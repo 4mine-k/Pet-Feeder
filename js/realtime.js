@@ -34,7 +34,7 @@
   //  Helpers DOM
   // ----------------------------------------------------------------------
   function root() {
-    return document.getElementById("dc-root") || document.body;
+    return document.getElementById("dc-root") || document.body || document.documentElement;
   }
   function findInScope(scope, pred) {
     if (!scope) return null;
@@ -89,23 +89,19 @@
   // ----------------------------------------------------------------------
   var originals = {}; // textes d'origine à restaurer (online / présence)
 
-  function waitFor(test, cb) {
-    var found = test();
-    if (found) { cb(found); return; }
-    var obs = new MutationObserver(function () {
-      var el = test();
-      if (el) { obs.disconnect(); cb(el); }
-    });
-    obs.observe(document.documentElement, { childList: true, subtree: true });
-  }
-
-  // On attend que le badge de statut soit rendu pour démarrer.
-  waitFor(findStatusLabel, function () {
+  // On attend (polling) que le design soit rendu — #dc-root + badge de statut —
+  // avant de brancher les listeners temps réel. Même pattern qu'auth.js.
+  function init() {
+    if (!document.getElementById("dc-root") || !findStatusLabel()) {
+      setTimeout(init, 200);
+      return;
+    }
     captureOriginals();
     attachListeners();
     // Rafraîchit le temps relatif chaque minute (même sans nouvel événement).
     setInterval(updateRelative, 60 * 1000);
-  });
+  }
+  init();
 
   function findStatusLabel() {
     return findLeaf(function (t) {
