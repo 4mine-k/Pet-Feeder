@@ -19,7 +19,9 @@
   }
 
   var base = decodeURIComponent(location.pathname).split("/").pop();
-  if (base !== "Dashboard.dc.html" && base !== "Dashboard Desktop.dc.html") {
+  var isDashboard = base === "Dashboard.dc.html" || base === "Dashboard Desktop.dc.html";
+  var isHistorique = base === "Historique.dc.html";
+  if (!isDashboard && !isHistorique) {
     return;
   }
 
@@ -27,7 +29,7 @@
   var HM_RE = /^([01]?\d|2[0-3]):([0-5]\d)$/;
 
   // ======================================================================
-  //  Synchronisation du temps (indépendant du DOM)
+  //  Synchronisation du temps (dashboards uniquement, indépendant du DOM)
   // ======================================================================
   function nowMinutes() {
     var d = new Date();
@@ -38,8 +40,10 @@
       console.warn("[controls] écriture /currentTime échouée :", e);
     });
   }
-  pushTime();                       // immédiat au chargement
-  setInterval(pushTime, 60 * 1000); // puis toutes les 60 secondes
+  if (isDashboard) {
+    pushTime();                       // immédiat au chargement
+    setInterval(pushTime, 60 * 1000); // puis toutes les 60 secondes
+  }
 
   // ======================================================================
   //  Helpers DOM
@@ -417,6 +421,16 @@
     var p = root().querySelector('path[d^="' + dPrefix + '"]');
     return p ? p.closest("div") : null;
   }
+  // Tous les conteneurs cliquables correspondant à un path (ex. 2 calendriers).
+  function navItemAll(dPrefix) {
+    var paths = root().querySelectorAll('path[d^="' + dPrefix + '"]');
+    var out = [];
+    for (var i = 0; i < paths.length; i++) {
+      var d = paths[i].closest("div");
+      if (d) out.push(d);
+    }
+    return out;
+  }
 
   function bindClick(el, handler) {
     if (!el || el.__pfNavBound) return;
@@ -548,22 +562,64 @@
   }
 
   // ======================================================================
+  //  Page Historique — boutons inactifs branchés (retour, calendrier, nav bas)
+  //  NB : les filtres "Tout/Repas/Présence/Alertes" sont déjà fonctionnels
+  //  nativement (onClick liés à la logique DCLogic du design) — on n'y touche pas.
+  // ======================================================================
+  function setupHistorique() {
+    // Retour (chevron gauche) → dashboard.
+    bindClick(navItem("M15 18l-6-6"), function () {
+      window.location.href = "Dashboard.dc.html";
+    });
+
+    // Deux icônes calendrier partagent le même path :
+    //   [0] = en-tête (filtre par date), [1] = navigation du bas (horaires).
+    var calendars = navItemAll("M16 2v4");
+    bindClick(calendars[0], function () {
+      alert("Filtrer par date — fonctionnalité à venir");
+    });
+
+    // Navigation du bas.
+    bindClick(navItem("M3 9l9-7 9 7"), function () {       // maison → dashboard
+      window.location.href = "Dashboard.dc.html";
+    });
+    bindClick(navItem("M18 20V10"), function () {           // graphique → historique
+      window.location.href = "Historique.dc.html";
+    });
+    bindClick(calendars[1], function () {                   // calendrier → horaires
+      var found = findScheduleSection();
+      if (found && found.section && found.section.scrollIntoView) {
+        found.section.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    });
+    bindClick(navItem("M19.4 15a1.65"), function () {       // engrenage → paramètres
+      alert("Paramètres à venir");
+    });
+  }
+
+  // ======================================================================
   //  Démarrage après rendu du design — polling jusqu'à présence des éléments
   //  (le web component <x-dc> est rendu par React après le chargement).
   // ======================================================================
   function init() {
     var dc = document.getElementById("dc-root");
-    var feedBtn = null;
-    if (dc) {
+    if (!dc) { setTimeout(init, 200); return; }
+
+    if (isDashboard) {
+      var feedBtn = null;
       var b = dc.querySelectorAll("button");
       for (var i = 0; i < b.length; i++) {
         if (/nourrir maintenant/i.test(b[i].textContent || "")) { feedBtn = b[i]; break; }
       }
+      if (!feedBtn) { setTimeout(init, 200); return; }
+      setupFeed();
+      setupSchedule();
+      setupNav();
+    } else if (isHistorique) {
+      // On attend que le bouton retour (chevron) soit rendu.
+      if (!root().querySelector('path[d^="M15 18l-6-6"]')) { setTimeout(init, 200); return; }
+      setupHistorique();
     }
-    if (!feedBtn) { setTimeout(init, 200); return; }
-    setupFeed();
-    setupSchedule();
-    setupNav();
   }
   init();
 })();
