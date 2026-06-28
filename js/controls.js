@@ -13,37 +13,13 @@
 (function () {
   "use strict";
 
-  if (typeof firebase === "undefined" || !firebase.database) {
-    console.error("[controls] Firebase Database n'est pas chargé.");
-    return;
-  }
-
-  var base = decodeURIComponent(location.pathname).split("/").pop();
-  var isDashboard = base === "Dashboard.dc.html" || base === "Dashboard Desktop.dc.html";
-  var isHistorique = base === "Historique.dc.html";
-  if (!isDashboard && !isHistorique) {
-    return;
-  }
-
-  var db = firebase.database();
   var HM_RE = /^([01]?\d|2[0-3]):([0-5]\d)$/;
+  // Assignés dans init() : db après la vérification Firebase ; isDashboard /
+  // isHistorique après la détection de page (déplacés ici pour un retry sûr).
+  var db, isDashboard, isHistorique;
 
-  // ======================================================================
-  //  Synchronisation du temps (dashboards uniquement, indépendant du DOM)
-  // ======================================================================
-  function nowMinutes() {
-    var d = new Date();
-    return d.getHours() * 60 + d.getMinutes();
-  }
-  function pushTime() {
-    db.ref("/currentTime").set(nowMinutes()).catch(function (e) {
-      console.warn("[controls] écriture /currentTime échouée :", e);
-    });
-  }
-  if (isDashboard) {
-    pushTime();                       // immédiat au chargement
-    setInterval(pushTime, 60 * 1000); // puis toutes les 60 secondes
-  }
+  // NB : l'écriture de /currentTime toutes les 60 s a été déplacée dans
+  // realtime.js (centralisation de la logique temps réel des dashboards).
 
   // ======================================================================
   //  Helpers DOM
@@ -606,6 +582,18 @@
   //  (le web component <x-dc> est rendu par React après le chargement).
   // ======================================================================
   function init() {
+    // 1) Détection de page (indépendant de Firebase).
+    var base = decodeURIComponent(location.pathname).split("/").pop();
+    isDashboard = base === "Dashboard.dc.html" || base === "Dashboard Desktop.dc.html";
+    isHistorique = base === "Historique.dc.html";
+    if (!isDashboard && !isHistorique) return;
+
+    // 2) Attendre que Firebase Database soit disponible (app initialisée).
+    try { firebase.database(); }
+    catch (e) { setTimeout(init, 200); return; }
+    if (!db) db = firebase.database();
+
+    // 3) Attendre que le design soit rendu.
     var dc = document.getElementById("dc-root");
     if (!dc) { setTimeout(init, 200); return; }
 
