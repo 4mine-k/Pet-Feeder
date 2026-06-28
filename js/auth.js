@@ -1,6 +1,18 @@
 (function() {
   "use strict";
 
+  // Redirection / protection des routes — exécuté dès que Firebase est prêt,
+  // indépendamment des boutons.
+  firebase.auth().onAuthStateChanged(function(user) {
+    var path = decodeURIComponent(location.pathname);
+    var isLoginPage = /Login\.dc\.html$/i.test(path);
+    if (user && isLoginPage) {
+      window.location.href = 'Dashboard.dc.html';
+    } else if (!user && !isLoginPage) {
+      window.location.href = 'Login.dc.html';
+    }
+  });
+
   function initAuth() {
     var buttons = document.querySelectorAll('button.scp4');
     if (buttons.length < 2) {
