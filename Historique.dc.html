@@ -32,6 +32,7 @@
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 <script src="./js/firebase-config.js"></script>
 <script src="./js/auth.js"></script>
+<script src="./js/controls.js"></script>
 </head>
 <body>
 <x-dc>
@@ -55,7 +56,7 @@
   <div style="padding: 56px 24px 24px; animation: fadeInUp 0.5s ease-out both">
     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px">
       <div style="display: flex; align-items: center; gap: 14px">
-        <div style="width: 40px; height: 40px; border-radius: 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: center; cursor: pointer"
+        <div id="btn-retour" style="width: 40px; height: 40px; border-radius: 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: center; cursor: pointer"
           style-hover="background: rgba(255,255,255,0.07)">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(242,237,231,0.5)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <path d="M15 18l-6-6 6-6"/>
@@ -65,7 +66,7 @@
           <div style="font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 600; color: #F2EDE7">Historique</div>
         </div>
       </div>
-      <div style="width: 40px; height: 40px; border-radius: 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: center; cursor: pointer"
+      <div id="btn-calendrier-header" style="width: 40px; height: 40px; border-radius: 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: center; cursor: pointer"
         style-hover="background: rgba(255,255,255,0.07)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(242,237,231,0.5)" stroke-width="1.5" stroke-linecap="round">
           <rect x="3" y="4" width="18" height="18" rx="2"/>
@@ -92,18 +93,18 @@
 
     <!-- Filter pills -->
     <div style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch">
-      <button onClick="{{ filterAll }}" style="padding: 9px 18px; border-radius: 10px; border: 1px solid {{ allBorder }}; background: {{ allBg }}; cursor: pointer; white-space: nowrap; flex-shrink: 0; transition: all 0.2s ease">
+      <button id="filter-tout" onClick="{{ filterAll }}" style="padding: 9px 18px; border-radius: 10px; border: 1px solid {{ allBorder }}; background: {{ allBg }}; cursor: pointer; white-space: nowrap; flex-shrink: 0; transition: all 0.2s ease">
         <span style="font-size: 12.5px; font-weight: 500; color: {{ allColor }}">Tout</span>
       </button>
-      <button onClick="{{ filterMeals }}" style="padding: 9px 18px; border-radius: 10px; border: 1px solid {{ mealsBorder }}; background: {{ mealsBg }}; cursor: pointer; white-space: nowrap; flex-shrink: 0; display: flex; align-items: center; gap: 7px; transition: all 0.2s ease">
+      <button id="filter-repas" onClick="{{ filterMeals }}" style="padding: 9px 18px; border-radius: 10px; border: 1px solid {{ mealsBorder }}; background: {{ mealsBg }}; cursor: pointer; white-space: nowrap; flex-shrink: 0; display: flex; align-items: center; gap: 7px; transition: all 0.2s ease">
         <div style="width: 6px; height: 6px; border-radius: 50%; background: #5BCC7E"></div>
         <span style="font-size: 12.5px; font-weight: 500; color: {{ mealsColor }}">Repas</span>
       </button>
-      <button onClick="{{ filterPresence }}" style="padding: 9px 18px; border-radius: 10px; border: 1px solid {{ presenceBorder }}; background: {{ presenceBg }}; cursor: pointer; white-space: nowrap; flex-shrink: 0; display: flex; align-items: center; gap: 7px; transition: all 0.2s ease">
+      <button id="filter-presence" onClick="{{ filterPresence }}" style="padding: 9px 18px; border-radius: 10px; border: 1px solid {{ presenceBorder }}; background: {{ presenceBg }}; cursor: pointer; white-space: nowrap; flex-shrink: 0; display: flex; align-items: center; gap: 7px; transition: all 0.2s ease">
         <div style="width: 6px; height: 6px; border-radius: 50%; background: #C9A96E"></div>
         <span style="font-size: 12.5px; font-weight: 500; color: {{ presenceColor }}">Présence</span>
       </button>
-      <button onClick="{{ filterAlerts }}" style="padding: 9px 18px; border-radius: 10px; border: 1px solid {{ alertsBorder }}; background: {{ alertsBg }}; cursor: pointer; white-space: nowrap; flex-shrink: 0; display: flex; align-items: center; gap: 7px; transition: all 0.2s ease">
+      <button id="filter-alertes" onClick="{{ filterAlerts }}" style="padding: 9px 18px; border-radius: 10px; border: 1px solid {{ alertsBorder }}; background: {{ alertsBg }}; cursor: pointer; white-space: nowrap; flex-shrink: 0; display: flex; align-items: center; gap: 7px; transition: all 0.2s ease">
         <div style="width: 6px; height: 6px; border-radius: 50%; background: #CF5858"></div>
         <span style="font-size: 12.5px; font-weight: 500; color: {{ alertsColor }}">Alertes</span>
       </button>
@@ -220,10 +221,10 @@
 
   <!-- Bottom nav -->
   <div style="position: fixed; bottom: 0; left: 0; right: 0; padding: 12px 20px 28px; background: linear-gradient(to top, #1B1B28 70%, transparent); display: flex; align-items: center; justify-content: space-around">
-    <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 16px; opacity: 0.4"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F2EDE7" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><div style="width: 4px; height: 4px; border-radius: 50%; background: transparent"></div></div>
-    <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 16px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C9A96E" stroke-width="1.8" stroke-linecap="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg><div style="width: 4px; height: 4px; border-radius: 50%; background: #C9A96E"></div></div>
-    <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 16px; opacity: 0.4"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F2EDE7" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><div style="width: 4px; height: 4px; border-radius: 50%; background: transparent"></div></div>
-    <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 16px; opacity: 0.4"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F2EDE7" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><div style="width: 4px; height: 4px; border-radius: 50%; background: transparent"></div></div>
+    <div id="nav-home" style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 16px; opacity: 0.4"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F2EDE7" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><div style="width: 4px; height: 4px; border-radius: 50%; background: transparent"></div></div>
+    <div id="nav-stats" style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 16px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C9A96E" stroke-width="1.8" stroke-linecap="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg><div style="width: 4px; height: 4px; border-radius: 50%; background: #C9A96E"></div></div>
+    <div id="nav-schedule" style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 16px; opacity: 0.4"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F2EDE7" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><div style="width: 4px; height: 4px; border-radius: 50%; background: transparent"></div></div>
+    <div id="nav-settings" style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 16px; opacity: 0.4"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F2EDE7" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><div style="width: 4px; height: 4px; border-radius: 50%; background: transparent"></div></div>
   </div>
 
 </div>
